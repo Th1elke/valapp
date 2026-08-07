@@ -1,0 +1,228 @@
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core'
+
+const id = () =>
+  text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID())
+
+const createdAt = () =>
+  text('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString())
+
+export const playerClasses = ['guerreiro', 'mago', 'paladino'] as const
+export const habitCategories = ['fisico', 'mente', 'disciplina', 'social', 'criatividade'] as const
+export const habitDifficulties = ['facil', 'medio', 'dificil'] as const
+export const habitFrequencies = ['diaria', 'semanal', 'dias_customizados'] as const
+export const habitStatuses = ['ativo', 'pausado', 'arquivado'] as const
+export const xpEventTypes = [
+  'checkin',
+  'dia_perfeito',
+  'penalidade_recaida',
+  'custo_troca_classe',
+  'ajuste_manual',
+  'missao',
+  'grimorio',
+] as const
+export const hpEventTypes = [
+  'habito_nao_cumprido',
+  'regen_dia_perfeito',
+  'reset_recaida',
+  'escudo_usado',
+  'pocao_cura',
+  'grimorio_erro',
+] as const
+export const goldEventTypes = ['checkin', 'dia_perfeito', 'missao', 'compra', 'ajuste_manual'] as const
+export const shieldTargetTypes = ['protecao_dia', 'protecao_streak'] as const
+export const missionStatuses = ['ativa', 'concluida', 'cancelada'] as const
+export const grimoireStatuses = ['gerado', 'concluida'] as const
+
+export const users = sqliteTable('users', {
+  id: id(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  name: text('name').notNull(),
+  timezone: text('timezone').notNull().default('America/Sao_Paulo'),
+
+  playerClass: text('player_class', { enum: playerClasses }),
+  level: integer('level').notNull().default(1),
+  xp: integer('xp').notNull().default(0),
+  hp: integer('hp').notNull().default(100),
+  gold: integer('gold').notNull().default(0),
+
+  classChosenAt: text('class_chosen_at'),
+  lastClassChangeAt: text('last_class_change_at'),
+
+  shieldsRemaining: integer('shields_remaining').notNull().default(1),
+  shieldWeekStart: text('shield_week_start'),
+
+  createdAt: createdAt(),
+  updatedAt: createdAt(),
+})
+
+export const habits = sqliteTable('habits', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: text('category', { enum: habitCategories }).notNull(),
+  difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
+  frequency: text('frequency', { enum: habitFrequencies }).notNull().default('diaria'),
+  customDays: text('custom_days', { mode: 'json' }).$type<number[]>(),
+
+  status: text('status', { enum: habitStatuses }).notNull().default('ativo'),
+  pausedFrom: text('paused_from'),
+  pausedUntil: text('paused_until'),
+
+  streakCount: integer('streak_count').notNull().default(0),
+  longestStreak: integer('longest_streak').notNull().default(0),
+
+  createdAt: createdAt(),
+  updatedAt: createdAt(),
+})
+
+export const checkIns = sqliteTable(
+  'check_ins',
+  {
+    id: id(),
+    habitId: text('habit_id')
+      .notNull()
+      .references(() => habits.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    checkinDate: text('checkin_date').notNull(),
+    completedAt: createdAt(),
+    xpAwarded: integer('xp_awarded').notNull(),
+    goldAwarded: integer('gold_awarded').notNull().default(0),
+    streakAtCheckin: integer('streak_at_checkin').notNull(),
+  },
+  (table) => [uniqueIndex('check_ins_habit_date_unique').on(table.habitId, table.checkinDate)],
+)
+
+export const xpEvents = sqliteTable('xp_events', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  habitId: text('habit_id').references(() => habits.id, { onDelete: 'set null' }),
+  type: text('type', { enum: xpEventTypes }).notNull(),
+  amount: integer('amount').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  createdAt: createdAt(),
+})
+
+export const hpEvents = sqliteTable('hp_events', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  habitId: text('habit_id').references(() => habits.id, { onDelete: 'set null' }),
+  type: text('type', { enum: hpEventTypes }).notNull(),
+  amount: integer('amount').notNull(),
+  hpAfter: integer('hp_after').notNull(),
+  createdAt: createdAt(),
+})
+
+export const goldEvents = sqliteTable('gold_events', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  habitId: text('habit_id').references(() => habits.id, { onDelete: 'set null' }),
+  missionId: text('mission_id').references(() => missions.id, { onDelete: 'set null' }),
+  type: text('type', { enum: goldEventTypes }).notNull(),
+  amount: integer('amount').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  createdAt: createdAt(),
+})
+
+export const missions = sqliteTable('missions', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
+  xpReward: integer('xp_reward').notNull(),
+  goldReward: integer('gold_reward').notNull(),
+  status: text('status', { enum: missionStatuses }).notNull().default('ativa'),
+  createdAt: createdAt(),
+  completedAt: text('completed_at'),
+})
+
+export interface GrimoireQuizQuestion {
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+}
+
+export interface GrimoireAnswer {
+  questionIndex: number
+  selectedOption: number
+  correct: boolean
+}
+
+export const grimoireSessions = sqliteTable('grimoire_sessions', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  summary: text('summary').notNull(),
+  quiz: text('quiz', { mode: 'json' }).$type<GrimoireQuizQuestion[]>().notNull(),
+  answers: text('answers', { mode: 'json' }).$type<GrimoireAnswer[]>().notNull().$defaultFn(() => []),
+  status: text('status', { enum: grimoireStatuses }).notNull().default('gerado'),
+  correctCount: integer('correct_count'),
+  xpAwarded: integer('xp_awarded'),
+  createdAt: createdAt(),
+  completedAt: text('completed_at'),
+})
+
+export const shieldUses = sqliteTable(
+  'shield_uses',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    habitId: text('habit_id').references(() => habits.id, { onDelete: 'set null' }),
+    weekStart: text('week_start').notNull(),
+    targetType: text('target_type', { enum: shieldTargetTypes }).notNull(),
+    protectedDate: text('protected_date').notNull(),
+    usedAt: createdAt(),
+  },
+  (table) => [uniqueIndex('shield_uses_user_week_unique').on(table.userId, table.weekStart)],
+)
+
+export const classChanges = sqliteTable('class_changes', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  oldClass: text('old_class', { enum: playerClasses }),
+  newClass: text('new_class', { enum: playerClasses }).notNull(),
+  xpCost: integer('xp_cost').notNull(),
+  changedAt: createdAt(),
+})
+
+export const dailyClosures = sqliteTable(
+  'daily_closures',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    closureDate: text('closure_date').notNull(),
+    perfectDay: integer('perfect_day', { mode: 'boolean' }).notNull().default(false),
+    relapsed: integer('relapsed', { mode: 'boolean' }).notNull().default(false),
+    xpChange: integer('xp_change').notNull().default(0),
+    hpChange: integer('hp_change').notNull().default(0),
+    goldChange: integer('gold_change').notNull().default(0),
+    processedAt: createdAt(),
+  },
+  (table) => [uniqueIndex('daily_closures_user_date_unique').on(table.userId, table.closureDate)],
+)
