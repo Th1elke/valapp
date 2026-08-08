@@ -10,7 +10,14 @@ const createdAt = () =>
     .notNull()
     .$defaultFn(() => new Date().toISOString())
 
-export const playerClasses = ['guerreiro', 'mago', 'paladino'] as const
+/**
+ * Nullable on purpose: rows written before this column existed have no real "last updated"
+ * value, so backfilling one would be a lie. Every write going forward sets it explicitly
+ * (`.set({ updatedAt: new Date().toISOString() })`), same as the rest of the codebase already does.
+ */
+const updatedAt = () => text('updated_at').$defaultFn(() => new Date().toISOString())
+
+export const playerClasses = ['guerreiro', 'mago', 'paladino', 'arqueiro', 'ladino', 'bardo'] as const
 export const habitCategories = ['fisico', 'mente', 'disciplina', 'social', 'criatividade'] as const
 export const habitDifficulties = ['facil', 'medio', 'dificil'] as const
 export const habitFrequencies = ['diaria', 'semanal', 'dias_customizados'] as const
@@ -23,6 +30,8 @@ export const xpEventTypes = [
   'ajuste_manual',
   'missao',
   'grimorio',
+  'tiro_certeiro',
+  'golpe_duplo',
 ] as const
 export const hpEventTypes = [
   'habito_nao_cumprido',
@@ -67,6 +76,7 @@ export const users = sqliteTable('users', {
   shieldWeekStart: text('shield_week_start'),
 
   restDayDate: text('rest_day_date'),
+  lastShowMustGoOnDate: text('last_show_must_go_on_date'),
 
   equippedTitle: text('equipped_title'),
   equippedAvatarBorder: text('equipped_avatar_border'),
@@ -75,7 +85,7 @@ export const users = sqliteTable('users', {
   coverUrl: text('cover_url'),
 
   createdAt: createdAt(),
-  updatedAt: createdAt(),
+  updatedAt: updatedAt(),
 })
 
 export const habits = sqliteTable('habits', {
@@ -100,7 +110,7 @@ export const habits = sqliteTable('habits', {
   dominatedAt: text('dominated_at'),
 
   createdAt: createdAt(),
-  updatedAt: createdAt(),
+  updatedAt: updatedAt(),
 })
 
 export const checkIns = sqliteTable(
@@ -166,10 +176,12 @@ export const missions = sqliteTable('missions', {
     .references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   description: text('description'),
+  category: text('category', { enum: habitCategories }),
   difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
   xpReward: integer('xp_reward').notNull(),
   goldReward: integer('gold_reward').notNull(),
   status: text('status', { enum: missionStatuses }).notNull().default('ativa'),
+  deadline: text('deadline'),
   createdAt: createdAt(),
   completedAt: text('completed_at'),
 })
@@ -202,6 +214,7 @@ export const grimoireSessions = sqliteTable('grimoire_sessions', {
   xpBoosted: integer('xp_boosted', { mode: 'boolean' }).notNull().default(false),
   clarividenciaUsed: integer('clarividencia_used', { mode: 'boolean' }).notNull().default(false),
   manipulacaoUsada: integer('manipulacao_usada', { mode: 'boolean' }).notNull().default(false),
+  apostaAltaUsada: integer('aposta_alta_usada', { mode: 'boolean' }).notNull().default(false),
   createdAt: createdAt(),
   completedAt: text('completed_at'),
 })

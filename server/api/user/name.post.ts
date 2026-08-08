@@ -1,12 +1,12 @@
 import { eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { users } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { UserStateDTO } from '#shared/types'
 
 const MAX_NAME_LENGTH = 30
 
 export default defineEventHandler(async (event): Promise<UserStateDTO> => {
+  const userId = await requireUserId(event)
   const body = await readBody(event)
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
   if (!name) throw createError({ statusCode: 400, statusMessage: 'Nome não pode ficar vazio.' })
@@ -17,10 +17,10 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
   const updated = db
     .update(users)
     .set({ name, updatedAt: new Date().toISOString() })
-    .where(eq(users.id, DEMO_USER_ID))
+    .where(eq(users.id, userId))
     .returning()
     .get()
-  if (!updated) throw createError({ statusCode: 404, statusMessage: 'Usuário demo não encontrado.' })
+  if (!updated) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
   return toUserStateDTO(updated)
 })

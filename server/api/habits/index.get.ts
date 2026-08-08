@@ -1,11 +1,11 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { checkIns, habits } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { HabitDTO } from '#shared/types'
 
-export default defineEventHandler((): HabitDTO[] => {
-  const rows = db.select().from(habits).where(eq(habits.userId, DEMO_USER_ID)).all()
+export default defineEventHandler(async (event): Promise<HabitDTO[]> => {
+  const userId = await requireUserId(event)
+  const rows = db.select().from(habits).where(eq(habits.userId, userId)).all()
   const today = todayStr()
 
   return rows
@@ -23,6 +23,7 @@ export default defineEventHandler((): HabitDTO[] => {
         category: h.category,
         difficulty: h.difficulty,
         frequency: h.frequency,
+        customDays: h.customDays,
         status: h.status,
         streakCount: h.streakCount,
         longestStreak: h.longestStreak,

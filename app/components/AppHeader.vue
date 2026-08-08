@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { Coins } from 'lucide-vue-next'
+import { Coins, LogOut } from 'lucide-vue-next'
 
 const { data: user } = useUserState()
+const { clear: clearSession } = useUserSession()
+
+async function logout() {
+  await clearSession()
+  // Zera o cache de `useUserState()` (mesma key 'user' em todo o app) — sem isso o plugin de
+  // tema (`theme.client.ts`) continua enxergando o `equippedTheme` antigo e a cor fica presa
+  // mesmo deslogado, destoando do roxo padrão do site nas telas públicas.
+  user.value = null
+  await navigateTo('/inicio')
+}
 </script>
 
 <template>
@@ -21,6 +31,14 @@ const { data: user } = useUserState()
           size="sm"
         />
       </NuxtLink>
+      <button
+        type="button"
+        title="Sair"
+        class="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+        @click="logout"
+      >
+        <LogOut :size="16" />
+      </button>
     </div>
   </header>
 </template>

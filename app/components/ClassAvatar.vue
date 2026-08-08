@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Shield, Sword, User, Wand2 } from 'lucide-vue-next'
+import { Music2, Shield, Sword, Target, User, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { BORDER_STYLES } from '#shared/cosmetics'
 import { getClassInfo } from '#shared/gamification'
@@ -18,7 +18,7 @@ const props = withDefaults(
 
 const info = computed(() => getClassInfo(props.playerClass, props.level))
 
-const classIcons = { guerreiro: Sword, mago: Wand2, paladino: Shield }
+const classIcons = { guerreiro: Sword, mago: Wand2, paladino: Shield, arqueiro: Target, ladino: VenetianMask, bardo: Music2 }
 const icon = computed(() => (info.value.base ? classIcons[info.value.base] : User))
 
 const avatarSizeClass = computed(() => ({ sm: 'h-10 w-10', md: 'h-16 w-16', lg: 'h-28 w-28' })[props.size])

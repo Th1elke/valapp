@@ -3,10 +3,10 @@ import { db } from '~~/db/client'
 import { checkIns, goldEvents, habits, userCosmetics, userInventory, users } from '~~/db/schema'
 import { getEffectiveCost, getMaxShields, SHOP_ITEMS } from '#shared/economy'
 import { COSMETIC_ITEMS } from '#shared/cosmetics'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { UserStateDTO } from '#shared/types'
 
 export default defineEventHandler(async (event) => {
+  const userId = await requireUserId(event)
   const body = await readBody(event)
   const itemId = body?.itemId
   const item = SHOP_ITEMS.find((i) => i.id === itemId)
@@ -16,32 +16,32 @@ export default defineEventHandler(async (event) => {
 
   if (cosmetic) {
     return db.transaction((tx): UserStateDTO => {
-      const user = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()
-      if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário demo não encontrado.' })
+      const user = tx.select().from(users).where(eq(users.id, userId)).get()
+      if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
       if (user.gold < cosmetic.cost) throw createError({ statusCode: 400, statusMessage: 'Ouro insuficiente.' })
 
       const alreadyOwned = tx
         .select()
         .from(userCosmetics)
-        .where(and(eq(userCosmetics.userId, DEMO_USER_ID), eq(userCosmetics.cosmeticId, cosmetic.id)))
+        .where(and(eq(userCosmetics.userId, userId), eq(userCosmetics.cosmeticId, cosmetic.id)))
         .get()
       if (alreadyOwned) throw createError({ statusCode: 400, statusMessage: 'Você já possui esse cosmético.' })
 
       const newGold = user.gold - cosmetic.cost
-      tx.insert(userCosmetics).values({ userId: DEMO_USER_ID, cosmeticId: cosmetic.id }).run()
-      tx.update(users).set({ gold: newGold, updatedAt: new Date().toISOString() }).where(eq(users.id, DEMO_USER_ID)).run()
-      tx.insert(goldEvents).values({ userId: DEMO_USER_ID, type: 'compra', amount: -cosmetic.cost, balanceAfter: newGold }).run()
+      tx.insert(userCosmetics).values({ userId, cosmeticId: cosmetic.id }).run()
+      tx.update(users).set({ gold: newGold, updatedAt: new Date().toISOString() }).where(eq(users.id, userId)).run()
+      tx.insert(goldEvents).values({ userId, type: 'compra', amount: -cosmetic.cost, balanceAfter: newGold }).run()
 
-      const updated = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()!
+      const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
       return toUserStateDTO(updated, tx)
     })
   }
 
   return db.transaction((tx): UserStateDTO => {
-    const user = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()
-    if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário demo não encontrado.' })
+    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
-    const skills = getUnlockedSkillIds(tx, DEMO_USER_ID)
+    const skills = getUnlockedSkillIds(tx, userId)
     const maxShields = getMaxShields(skills)
     const cost = getEffectiveCost(item!, skills)
 
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
         const existing = tx
           .select()
           .from(userInventory)
-          .where(and(eq(userInventory.userId, DEMO_USER_ID), eq(userInventory.itemId, item!.effect.itemId)))
+          .where(and(eq(userInventory.userId, userId), eq(userInventory.itemId, item!.effect.itemId)))
           .get()
         if (existing) {
           tx.update(userInventory)
@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
             .run()
         } else {
           tx.insert(userInventory)
-            .values({ userId: DEMO_USER_ID, itemId: item!.effect.itemId, quantity: item!.effect.grants })
+            .values({ userId, itemId: item!.effect.itemId, quantity: item!.effect.grants })
             .run()
         }
         break
@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
       }
       case 'streak_restore': {
         if (!targetHabitId) throw createError({ statusCode: 400, statusMessage: 'targetHabitId é obrigatório.' })
-        const habit = tx.select().from(habits).where(and(eq(habits.id, targetHabitId), eq(habits.userId, DEMO_USER_ID))).get()
+        const habit = tx.select().from(habits).where(and(eq(habits.id, targetHabitId), eq(habits.userId, userId))).get()
         if (!habit) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
         if (habit.lastBrokenStreak == null || !habit.lastBrokenStreakDate) {
           throw createError({ statusCode: 400, statusMessage: 'Esse hábito não tem uma sequência recente para restaurar.' })
@@ -111,7 +111,7 @@ export default defineEventHandler(async (event) => {
           tx.insert(checkIns)
             .values({
               habitId: habit.id,
-              userId: DEMO_USER_ID,
+              userId,
               checkinDate: habit.lastBrokenStreakDate,
               xpAwarded: 0,
               goldAwarded: 0,
@@ -123,11 +123,11 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    tx.update(users).set(updates).where(eq(users.id, DEMO_USER_ID)).run()
+    tx.update(users).set(updates).where(eq(users.id, userId)).run()
 
-    tx.insert(goldEvents).values({ userId: DEMO_USER_ID, type: 'compra', amount: -cost, balanceAfter: newGold }).run()
+    tx.insert(goldEvents).values({ userId, type: 'compra', amount: -cost, balanceAfter: newGold }).run()
 
-    const updated = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()!
+    const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
     return toUserStateDTO(updated, tx)
   })
 })

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DIFFICULTY_XP } from '#shared/gamification'
-import { categoryLabel, difficultyLabel, type HabitCategory, type HabitDifficulty } from '#shared/types'
+import { WEEKDAY_LABELS, customDaysLabel } from '#shared/habitSchedule'
+import { categoryLabel, difficultyLabel, type HabitCategory, type HabitDifficulty, type HabitFrequency } from '#shared/types'
 
 const { data: habits, refresh } = useHabits()
 
@@ -16,21 +17,41 @@ const showForm = ref(false)
 const newName = ref('')
 const newCategory = ref<HabitCategory>('fisico')
 const newDifficulty = ref<HabitDifficulty>('facil')
+const newFrequency = ref<HabitFrequency>('diaria')
+const newCustomDays = ref<number[]>([])
 const creating = ref(false)
 const formError = ref('')
+
+function toggleNewDay(day: number) {
+  const idx = newCustomDays.value.indexOf(day)
+  if (idx === -1) newCustomDays.value.push(day)
+  else newCustomDays.value.splice(idx, 1)
+}
 
 async function submitNewHabit() {
   if (!newName.value.trim()) {
     formError.value = 'Dê um nome para o hábito.'
     return
   }
+  if (newFrequency.value === 'dias_customizados' && newCustomDays.value.length === 0) {
+    formError.value = 'Escolha pelo menos um dia da semana.'
+    return
+  }
   creating.value = true
   formError.value = ''
   try {
-    await createHabit({ name: newName.value, category: newCategory.value, difficulty: newDifficulty.value })
+    await createHabit({
+      name: newName.value,
+      category: newCategory.value,
+      difficulty: newDifficulty.value,
+      frequency: newFrequency.value,
+      customDays: newFrequency.value === 'dias_customizados' ? newCustomDays.value : undefined,
+    })
     newName.value = ''
     newCategory.value = 'fisico'
     newDifficulty.value = 'facil'
+    newFrequency.value = 'diaria'
+    newCustomDays.value = []
     showForm.value = false
     await refresh()
   } catch (err) {
@@ -81,7 +102,38 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           </SelectContent>
         </Select>
 
-        <Button :disabled="creating" @click="submitNewHabit">{{ creating ? 'Criando…' : 'Criar hábito' }}</Button>
+        <div class="flex flex-wrap items-center gap-2 sm:col-span-3">
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            :class="newFrequency === 'diaria' ? 'bg-primary text-primary-foreground' : 'glass-inset text-muted-foreground'"
+            @click="newFrequency = 'diaria'"
+          >
+            Todo dia
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            :class="newFrequency === 'dias_customizados' ? 'bg-primary text-primary-foreground' : 'glass-inset text-muted-foreground'"
+            @click="newFrequency = 'dias_customizados'"
+          >
+            Dias específicos
+          </button>
+        </div>
+        <div v-if="newFrequency === 'dias_customizados'" class="flex flex-wrap gap-1.5 sm:col-span-3">
+          <button
+            v-for="(label, i) in WEEKDAY_LABELS"
+            :key="i"
+            type="button"
+            class="h-9 w-9 rounded-full text-xs font-semibold transition-colors"
+            :class="newCustomDays.includes(i) ? 'bg-primary text-primary-foreground' : 'glass-inset text-muted-foreground'"
+            @click="toggleNewDay(i)"
+          >
+            {{ label }}
+          </button>
+        </div>
+
+        <Button :disabled="creating" class="sm:col-span-3" @click="submitNewHabit">{{ creating ? 'Criando…' : 'Criar hábito' }}</Button>
       </div>
       <p v-if="formError" class="text-sm text-red-400">{{ formError }}</p>
     </div>
@@ -98,6 +150,7 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge :variant="habit.category">{{ categoryLabel[habit.category] }}</Badge>
             <Badge variant="secondary">{{ difficultyLabel[habit.difficulty] }} · {{ DIFFICULTY_XP[habit.difficulty] }} XP</Badge>
+            <Badge v-if="habit.frequency === 'dias_customizados'" variant="secondary">{{ customDaysLabel(habit.customDays) }}</Badge>
             <Badge v-if="habit.dominatedAt" variant="warning" class="inline-flex items-center gap-1">
               <Crown :size="10" /> Dominado
             </Badge>

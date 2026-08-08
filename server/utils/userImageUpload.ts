@@ -1,7 +1,6 @@
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { H3Event } from 'h3'
-import { DEMO_USER_ID } from '#shared/constants'
 
 const MAX_SIZE = 5 * 1024 * 1024
 const MIME_EXT: Record<string, string> = {
@@ -12,7 +11,7 @@ const MIME_EXT: Record<string, string> = {
 }
 
 /** Saves a single-file multipart upload under public/uploads/<subdir>/<userId>.<ext> and returns its public URL. */
-export async function saveUserImage(event: H3Event, fieldName: string, subdir: string): Promise<string> {
+export async function saveUserImage(event: H3Event, userId: string, fieldName: string, subdir: string): Promise<string> {
   const parts = await readMultipartFormData(event)
   const file = parts?.find((p) => p.name === fieldName && p.filename)
   if (!file) throw createError({ statusCode: 400, statusMessage: `Envie um arquivo de imagem no campo "${fieldName}".` })
@@ -26,10 +25,10 @@ export async function saveUserImage(event: H3Event, fieldName: string, subdir: s
 
   const existing = await readdir(dir).catch(() => [] as string[])
   await Promise.all(
-    existing.filter((name) => name.startsWith(`${DEMO_USER_ID}.`)).map((name) => rm(join(dir, name)).catch(() => {})),
+    existing.filter((name) => name.startsWith(`${userId}.`)).map((name) => rm(join(dir, name)).catch(() => {})),
   )
 
-  await writeFile(join(dir, `${DEMO_USER_ID}.${ext}`), file.data)
+  await writeFile(join(dir, `${userId}.${ext}`), file.data)
 
-  return `/uploads/${subdir}/${DEMO_USER_ID}.${ext}?v=${Date.now()}`
+  return `/uploads/${subdir}/${userId}.${ext}?v=${Date.now()}`
 }

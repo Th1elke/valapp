@@ -3,8 +3,24 @@ import { hasSkill } from './skills'
 export type PotionItemId = 'potion_small' | 'potion_medium' | 'potion_large'
 export type InventoryItemId = PotionItemId | 'olho_visao' | 'escudo_cristal' | 'elixir_erudito' | 'pena_magica'
 
+export const INVENTORY_ITEM_IDS: InventoryItemId[] = [
+  'potion_small',
+  'potion_medium',
+  'potion_large',
+  'olho_visao',
+  'escudo_cristal',
+  'elixir_erudito',
+  'pena_magica',
+]
+
 /** Grimório battle consumables discounted by Barganha Arcana (Mago) — Pena Mágica is deliberately excluded, per balanceamento.txt. */
 const BARGANHA_ARCANA_ITEMS: ReadonlySet<InventoryItemId> = new Set(['olho_visao', 'escudo_cristal', 'elixir_erudito'])
+
+/** Time-saving shop items discounted by Corda Extra (Arqueiro). */
+const CORDA_EXTRA_ITEMS: ReadonlySet<ShopItemId> = new Set(['ampulheta_tempo', 'ticket_estalagem'])
+
+/** Potions discounted by Bolsos Cheios (Ladino). */
+const BOLSOS_CHEIOS_ITEMS: ReadonlySet<InventoryItemId> = new Set(['potion_small', 'potion_medium', 'potion_large'])
 
 export type ShopItemId = 'shield' | InventoryItemId | 'ampulheta_tempo' | 'ticket_estalagem'
 
@@ -41,14 +57,28 @@ export function getPotionHealAmount(itemId: PotionItemId, skills: readonly strin
   return hasSkill(skills, 'mago_metabolismo_magico') ? Math.round(base * 1.25) : base
 }
 
-/** Shop price for an item — Barganha Arcana (Mago) discounts a few Grimório consumables by 20%. */
-export function getEffectiveCost(item: Pick<ShopItem, 'cost' | 'effect'>, skills: readonly string[] = []): number {
+/**
+ * Shop price for an item — Barganha Arcana (Mago) discounts a few Grimório consumables by 20%,
+ * Corda Extra (Arqueiro) discounts the Ampulheta do Tempo/Ticket da Estalagem by 20%, and
+ * Bolsos Cheios (Ladino) discounts potions by 15%.
+ */
+export function getEffectiveCost(item: Pick<ShopItem, 'id' | 'cost' | 'effect'>, skills: readonly string[] = []): number {
   if (
     item.effect.kind === 'inventory' &&
     BARGANHA_ARCANA_ITEMS.has(item.effect.itemId) &&
     hasSkill(skills, 'mago_barganha_arcana')
   ) {
     return Math.round(item.cost * 0.8)
+  }
+  if (CORDA_EXTRA_ITEMS.has(item.id) && hasSkill(skills, 'arqueiro_corda_extra')) {
+    return Math.round(item.cost * 0.8)
+  }
+  if (
+    item.effect.kind === 'inventory' &&
+    BOLSOS_CHEIOS_ITEMS.has(item.effect.itemId) &&
+    hasSkill(skills, 'ladino_bolsos_cheios')
+  ) {
+    return Math.round(item.cost * 0.85)
   }
   return item.cost
 }

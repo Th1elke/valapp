@@ -4,8 +4,8 @@ export function useGrimoireHistory() {
   return useFetch<GrimoireSessionDTO[]>('/api/grimoire', { key: 'grimoire-history' })
 }
 
-export function createGrimoireSession(content: string, useElixir?: boolean) {
-  return $fetch<GrimoireSessionDTO>('/api/grimoire', { method: 'POST', body: { content, useElixir } })
+export function createGrimoireSession(content: string, useElixir?: boolean, apostaAlta?: boolean) {
+  return $fetch<GrimoireSessionDTO>('/api/grimoire', { method: 'POST', body: { content, useElixir, apostaAlta } })
 }
 
 export function fetchGrimoireSession(id: string) {

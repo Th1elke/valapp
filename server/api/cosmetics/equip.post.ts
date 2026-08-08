@@ -2,7 +2,6 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { userCosmetics, users } from '~~/db/schema'
 import { COSMETIC_ITEMS, type CosmeticCategory } from '#shared/cosmetics'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { UserStateDTO } from '#shared/types'
 
 const CATEGORY_COLUMN = {
@@ -12,6 +11,7 @@ const CATEGORY_COLUMN = {
 } as const satisfies Record<CosmeticCategory, keyof typeof users.$inferInsert>
 
 export default defineEventHandler(async (event): Promise<UserStateDTO> => {
+  const userId = await requireUserId(event)
   const body = await readBody(event)
   const category = body?.category as CosmeticCategory | undefined
   const cosmeticId = body?.cosmeticId === null ? null : typeof body?.cosmeticId === 'string' ? body.cosmeticId : undefined
@@ -28,17 +28,17 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
       const owned = tx
         .select()
         .from(userCosmetics)
-        .where(and(eq(userCosmetics.userId, DEMO_USER_ID), eq(userCosmetics.cosmeticId, cosmeticId)))
+        .where(and(eq(userCosmetics.userId, userId), eq(userCosmetics.cosmeticId, cosmeticId)))
         .get()
       if (!owned) throw createError({ statusCode: 400, statusMessage: 'Você não possui esse cosmético.' })
     }
 
     tx.update(users)
       .set({ [CATEGORY_COLUMN[category]]: cosmeticId, updatedAt: new Date().toISOString() })
-      .where(eq(users.id, DEMO_USER_ID))
+      .where(eq(users.id, userId))
       .run()
 
-    const updated = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()!
+    const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
     return toUserStateDTO(updated, tx)
   })
 })

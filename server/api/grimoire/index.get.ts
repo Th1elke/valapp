@@ -1,14 +1,14 @@
 import { desc, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { grimoireSessions } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { GrimoireSessionDTO } from '#shared/types'
 
-export default defineEventHandler((): GrimoireSessionDTO[] => {
+export default defineEventHandler(async (event): Promise<GrimoireSessionDTO[]> => {
+  const userId = await requireUserId(event)
   const rows = db
     .select()
     .from(grimoireSessions)
-    .where(eq(grimoireSessions.userId, DEMO_USER_ID))
+    .where(eq(grimoireSessions.userId, userId))
     .orderBy(desc(grimoireSessions.createdAt))
     .all()
 

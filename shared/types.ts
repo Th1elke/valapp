@@ -4,7 +4,7 @@ export type HabitCategory = 'fisico' | 'mente' | 'disciplina' | 'social' | 'cria
 export type HabitDifficulty = 'facil' | 'medio' | 'dificil'
 export type HabitFrequency = 'diaria' | 'semanal' | 'dias_customizados'
 export type HabitStatus = 'ativo' | 'pausado' | 'arquivado'
-export type PlayerClass = 'guerreiro' | 'mago' | 'paladino'
+export type PlayerClass = 'guerreiro' | 'mago' | 'paladino' | 'arqueiro' | 'ladino' | 'bardo'
 export type MissionStatus = 'ativa' | 'concluida' | 'cancelada'
 export type GrimoireStatus = 'gerado' | 'concluida'
 
@@ -44,6 +44,7 @@ export interface HabitDTO {
   category: HabitCategory
   difficulty: HabitDifficulty
   frequency: HabitFrequency
+  customDays: number[] | null
   status: HabitStatus
   streakCount: number
   longestStreak: number
@@ -78,10 +79,12 @@ export interface MissionDTO {
   id: string
   title: string
   description: string | null
+  category: HabitCategory | null
   difficulty: HabitDifficulty
   xpReward: number
   goldReward: number
   status: MissionStatus
+  deadline: string | null
   createdAt: string
 }
 
@@ -135,4 +138,5 @@ export interface GrimoireAnswerResultDTO {
   level: number
   leveledUp: boolean
   shieldUsed: boolean
+  dodged: boolean
 }

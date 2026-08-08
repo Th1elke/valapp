@@ -1,17 +1,17 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { checkIns, goldEvents, habits, users, xpEvents } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import { levelForXp } from '#shared/gamification'
 
 export default defineEventHandler(async (event) => {
+  const userId = await requireUserId(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'id é obrigatório.' })
 
   const today = todayStr()
 
   return db.transaction((tx) => {
-    const habit = tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, DEMO_USER_ID))).get()
+    const habit = tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).get()
     if (!habit) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
 
     const todayCheckin = tx
@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
       .get()
     if (!todayCheckin) throw createError({ statusCode: 404, statusMessage: 'Nenhum check-in de hoje para desfazer.' })
 
-    const user = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()
-    if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário demo não encontrado.' })
+    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
     const newXp = Math.max(0, user.xp - todayCheckin.xpAwarded)
     const newGold = Math.max(0, user.gold - todayCheckin.goldAwarded)
@@ -35,12 +35,12 @@ export default defineEventHandler(async (event) => {
 
     tx.update(users)
       .set({ xp: newXp, level: newLevel, gold: newGold, updatedAt: new Date().toISOString() })
-      .where(eq(users.id, DEMO_USER_ID))
+      .where(eq(users.id, userId))
       .run()
 
     tx.insert(xpEvents)
       .values({
-        userId: DEMO_USER_ID,
+        userId,
         habitId: habit.id,
         type: 'ajuste_manual',
         amount: -todayCheckin.xpAwarded,
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
 
     tx.insert(goldEvents)
       .values({
-        userId: DEMO_USER_ID,
+        userId,
         habitId: habit.id,
         type: 'ajuste_manual',
         amount: -todayCheckin.goldAwarded,

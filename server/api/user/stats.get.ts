@@ -1,15 +1,16 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { checkIns, habitCategories, habits, xpEvents } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import type { AttributeStatsDTO } from '#shared/types'
 
-export default defineEventHandler((): AttributeStatsDTO[] => {
+export default defineEventHandler(async (event): Promise<AttributeStatsDTO[]> => {
+  const userId = await requireUserId(event)
+
   const rows = db
     .select({ category: habits.category, xp: sql<number>`coalesce(sum(${checkIns.xpAwarded}), 0)` })
     .from(habits)
     .leftJoin(checkIns, eq(checkIns.habitId, habits.id))
-    .where(eq(habits.userId, DEMO_USER_ID))
+    .where(eq(habits.userId, userId))
     .groupBy(habits.category)
     .all()
 
@@ -19,7 +20,7 @@ export default defineEventHandler((): AttributeStatsDTO[] => {
   const grimoireXp = db
     .select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)` })
     .from(xpEvents)
-    .where(and(eq(xpEvents.userId, DEMO_USER_ID), eq(xpEvents.type, 'grimorio')))
+    .where(and(eq(xpEvents.userId, userId), eq(xpEvents.type, 'grimorio')))
     .get()
 
   byCategory.set('mente', (byCategory.get('mente') ?? 0) + Number(grimoireXp?.total ?? 0))

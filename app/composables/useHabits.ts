@@ -1,10 +1,16 @@
-import type { HabitCategory, HabitDifficulty, HabitDTO, HabitStatus } from '#shared/types'
+import type { HabitCategory, HabitDifficulty, HabitDTO, HabitFrequency, HabitStatus } from '#shared/types'
 
 export function useHabits() {
   return useFetch<HabitDTO[]>('/api/habits', { key: 'habits' })
 }
 
-export function createHabit(input: { name: string; category: HabitCategory; difficulty: HabitDifficulty }) {
+export function createHabit(input: {
+  name: string
+  category: HabitCategory
+  difficulty: HabitDifficulty
+  frequency?: HabitFrequency
+  customDays?: number[]
+}) {
   return $fetch('/api/habits', { method: 'POST', body: input })
 }
 

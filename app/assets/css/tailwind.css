@@ -126,3 +126,18 @@
     transform: scale(1.06);
   }
 }
+
+/* Reduz toda animação/transição CSS a praticamente instantânea pra quem pede menos movimento —
+   cobre as transições de hover/active/width usadas na landing (inicio.vue, HudPreview.vue).
+   As animações puramente em JS (count-up, sequência escalonada do hero) têm seu próprio check
+   de `prefersReducedMotion()` porque um reset só em CSS não cancela delays de `setTimeout`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

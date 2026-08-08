@@ -89,6 +89,9 @@ const CLASS_BONUS_CATEGORY: Record<PlayerClass, HabitCategory | null> = {
   guerreiro: 'fisico',
   mago: 'mente',
   paladino: null,
+  arqueiro: null,
+  ladino: null,
+  bardo: null,
 }
 
 /**
@@ -107,9 +110,9 @@ export function levelForXp(xp: number): number {
   return level
 }
 
-/** Streak count -> XP multiplier, per docs/01-regras-gamificacao.md section 2.1. Adrenalina (Guerreiro) lowers the thresholds by 20%. */
+/** Streak count -> XP multiplier, per docs/01-regras-gamificacao.md section 2.1. Adrenalina (Guerreiro, -20%) or Refrão Curto (Bardo, -10%) lower the thresholds. */
 export function streakMultiplier(streak: number, skills: readonly string[] = []): number {
-  const t = hasSkill(skills, 'guerreiro_adrenalina') ? 0.8 : 1
+  const t = hasSkill(skills, 'guerreiro_adrenalina') ? 0.8 : hasSkill(skills, 'bardo_refrao_curto') ? 0.9 : 1
   if (streak >= 35 * t) return 2.0
   if (streak >= 21 * t) return 1.7
   if (streak >= 14 * t) return 1.4
@@ -156,10 +159,54 @@ export function computeCheckinXp(
   const base = difficulty === 'dificil' && hasSkill(skills, 'guerreiro_furia_cega') ? 50 : DIFFICULTY_XP[difficulty]
   const mult = streakMultiplier(streakBeforeCheckin, skills) * classXpMultiplier(category, playerClass, level)
   let xp = Math.round(base * mult)
+  // Voz Encantadora (passiva raiz do Bardo): +5% de XP em hábitos Sociais.
+  if (playerClass === 'bardo' && level >= 5 && category === 'social') {
+    xp = Math.round(xp * 1.05)
+  }
   if (hasSkill(skills, 'paladino_voto_disciplina') && hpRatio !== undefined && hpRatio < 0.3) {
     xp = Math.round(xp * 1.5)
   }
   return xp
+}
+
+/** Streak count (after this check-in) at which Tiro Certeiro triggers — every 5th, or 4th with Fluxo Constante. */
+export function tiroCertoInterval(skills: readonly string[] = []): number {
+  return hasSkill(skills, 'arqueiro_fluxo_constante') ? 4 : 5
+}
+
+/** Flat Tiro Certeiro bonus percentage of the difficulty's base XP — includes Olho de Falcão (+5pp root passive). */
+export function tiroCertoPercent(playerClass: PlayerClass | null, level: number, skills: readonly string[] = []): number {
+  if (playerClass !== 'arqueiro' || level < 5) return 0
+  const base = hasSkill(skills, 'arqueiro_ponto_fraco') ? 0.8 : 0.5
+  return base + 0.05
+}
+
+/**
+ * Flat XP bonus for Tiro Certeiro (Arqueiro) — fires every 5th (or 4th) consecutive check-in in a
+ * habit's streak. Deliberately NOT multiplied by streak/class multipliers (balancing note): it's a
+ * flat percentage of the difficulty's base XP, so it stays meaningful early and doesn't snowball late.
+ */
+export function tiroCertoBonus(
+  streakAfterCheckin: number,
+  difficulty: HabitDifficulty,
+  playerClass: PlayerClass | null,
+  level: number,
+  skills: readonly string[] = [],
+): number {
+  const pct = tiroCertoPercent(playerClass, level, skills)
+  if (pct === 0) return 0
+  if (streakAfterCheckin % tiroCertoInterval(skills) !== 0) return 0
+  return Math.round(DIFFICULTY_XP[difficulty] * pct)
+}
+
+/** Golpe Duplo (Ladino) chance to double a Criatividade check-in's XP — tiered by level, plus Instinto/Mão Leve/Prática. */
+export function golpeDuploChance(playerClass: PlayerClass | null, level: number, skills: readonly string[] = []): number {
+  if (playerClass !== 'ladino' || level < 5) return 0
+  const baseByTier = [0.15, 0.2, 0.25]
+  let chance = baseByTier[classTier(level)] + 0.05 // Instinto (passiva raiz)
+  if (hasSkill(skills, 'ladino_mao_leve')) chance += 0.05
+  if (hasSkill(skills, 'ladino_pratica')) chance += 0.08
+  return chance
 }
 
 export function computeHpLoss(
@@ -182,6 +229,8 @@ export function computeCheckinGold(
 ): number {
   let gold = DIFFICULTY_GOLD[difficulty]
   if (category === 'fisico' && hasSkill(skills, 'guerreiro_saqueador')) gold += 3
+  if (category === 'disciplina' && hasSkill(skills, 'arqueiro_provisoes')) gold += 3
+  if (category === 'social' && hasSkill(skills, 'bardo_aplausos')) gold += 3
   if (hasSkill(skills, 'paladino_voto_disciplina') && hpRatio !== undefined && hpRatio < 0.3) {
     gold = Math.round(gold * 1.5)
   }
@@ -207,12 +256,18 @@ const CLASS_TIER_LABELS: Record<PlayerClass, string[]> = {
   guerreiro: ['Guerreiro', 'Cavaleiro', 'Campeão'],
   mago: ['Mago', 'Arcanista', 'Arquimago'],
   paladino: ['Paladino', 'Templário', 'Cruzado'],
+  arqueiro: ['Arqueiro', 'Patrulheiro', 'Mestre Arqueiro'],
+  ladino: ['Ladino', 'Trapaceiro', 'Mestre das Sombras'],
+  bardo: ['Bardo', 'Menestrel', 'Virtuoso'],
 }
 
 const CLASS_GRADIENTS: Record<PlayerClass, string> = {
   guerreiro: 'from-orange-400 via-red-500 to-rose-600',
   mago: 'from-sky-400 via-blue-500 to-indigo-600',
   paladino: 'from-fuchsia-400 via-purple-500 to-violet-600',
+  arqueiro: 'from-emerald-400 via-green-500 to-teal-600',
+  ladino: 'from-slate-500 via-zinc-600 to-violet-950',
+  bardo: 'from-amber-300 via-fuchsia-400 to-pink-500',
 }
 
 export function getClassInfo(base: PlayerClass | null, level: number): ClassInfo {

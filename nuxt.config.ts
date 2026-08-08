@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss', '@nuxt/fonts'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/fonts', 'nuxt-auth-utils'],
   components: [
     { path: '~/components', pathPrefix: false, extensions: ['.vue'] },
   ],
@@ -13,5 +13,16 @@ export default defineNuxtConfig({
   },
   fonts: {
     families: [{ name: 'General Sans', provider: 'fontshare', weights: [400, 500, 600, 700] }],
+  },
+  // Explicit even though these match nuxt-auth-utils/h3 defaults — future-proofs the session
+  // cookie's security posture against a default changing silently in an upgrade.
+  runtimeConfig: {
+    session: {
+      cookie: {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+      },
+    },
   },
 })

@@ -1,10 +1,16 @@
-import type { HabitDifficulty, MissionDTO } from '#shared/types'
+import type { HabitCategory, HabitDifficulty, MissionDTO } from '#shared/types'
 
 export function useMissions() {
   return useFetch<MissionDTO[]>('/api/missions', { key: 'missions' })
 }
 
-export function createMission(input: { title: string; description?: string; difficulty: HabitDifficulty }) {
+export function createMission(input: {
+  title: string
+  description?: string
+  category?: HabitCategory | null
+  difficulty: HabitDifficulty
+  deadline?: string | null
+}) {
   return $fetch('/api/missions', { method: 'POST', body: input })
 }
 

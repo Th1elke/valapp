@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Eye, Flame, Gem, Skull, Sparkles, Swords, X, Zap } from 'lucide-vue-next'
+import { Check, Eye, Flame, Gem, Skull, Sparkles, Swords, VenetianMask, X, Zap } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { GRIMOIRE_MIN_LENGTH } from '#shared/gamification'
@@ -10,6 +10,8 @@ const { data: history, refresh: refreshHistory } = useGrimoireHistory()
 
 const content = ref('')
 const useElixirChecked = ref(false)
+const apostaAltaChecked = ref(false)
+const hasApostaAlta = computed(() => user.value?.unlockedSkills.includes('ladino_aposta_alta') ?? false)
 const analyzing = ref(false)
 const analyzeError = ref('')
 
@@ -29,7 +31,7 @@ const correctSoFar = computed(() => session.value?.answers.filter((a) => a.corre
 const battleComplete = computed(() => session.value?.status === 'concluida')
 const currentQuestionIndex = computed(() => {
   if (!showFeedback.value) return answeredCount.value
-  if (lastResult.value?.shieldUsed) return answeredCount.value
+  if (lastResult.value?.shieldUsed || lastResult.value?.dodged) return answeredCount.value
   return answeredCount.value - 1
 })
 const currentQuestion = computed(() => session.value?.quiz[currentQuestionIndex.value] ?? null)
@@ -48,7 +50,7 @@ async function analyze() {
   analyzing.value = true
   analyzeError.value = ''
   try {
-    session.value = await createGrimoireSession(content.value, useElixirChecked.value)
+    session.value = await createGrimoireSession(content.value, useElixirChecked.value, apostaAltaChecked.value)
     selectedOption.value = null
     lastResult.value = null
     showFeedback.value = false
@@ -56,6 +58,7 @@ async function analyze() {
     activeTab.value = 'fogueira'
     content.value = ''
     useElixirChecked.value = false
+    apostaAltaChecked.value = false
     await Promise.all([refreshHistory(), refreshUser()])
   } catch (err) {
     analyzeError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível gerar o quiz.'
@@ -75,7 +78,7 @@ async function submitAnswer() {
     lastResult.value = result
     hpLossLastAnswer.value = Math.max(0, hpBefore - result.hp)
     showFeedback.value = true
-    if (!result.shieldUsed) {
+    if (!result.shieldUsed && !result.dodged) {
       session.value.answers = [...session.value.answers, { questionIndex: qIndex, selectedOption: picked, correct: result.correct }]
       if (result.battleComplete) {
         session.value.status = 'concluida'
@@ -102,11 +105,11 @@ async function useHint() {
 }
 
 function nextQuestion() {
-  const wasShield = lastResult.value?.shieldUsed ?? false
+  const keepsHints = lastResult.value?.shieldUsed || lastResult.value?.dodged
   showFeedback.value = false
   selectedOption.value = null
   lastResult.value = null
-  if (!wasShield) eliminatedIndices.value = []
+  if (!keepsHints) eliminatedIndices.value = []
 }
 
 async function resume(target: GrimoireSessionDTO) {
@@ -137,6 +140,11 @@ async function resume(target: GrimoireSessionDTO) {
         <input v-model="useElixirChecked" type="checkbox" class="rounded border-white/20" />
         <Zap :size="14" class="text-amber-400" />
         Usar Elixir do Erudito nesta batalha (dobra o XP do chefe) — você tem {{ elixirCount }}
+      </label>
+      <label v-if="hasApostaAlta" class="flex items-center gap-2 text-sm text-muted-foreground">
+        <input v-model="apostaAltaChecked" type="checkbox" class="rounded border-white/20" />
+        <VenetianMask :size="14" class="text-violet-400" />
+        Aposta Alta nesta batalha: dobra a perda de HP por erro, mas também dobra XP e ouro na vitória
       </label>
       <p v-if="penaCount > 0" class="flex items-center gap-2 text-xs text-muted-foreground">
         <Sparkles :size="12" class="text-fuchsia-400" />
@@ -246,6 +254,9 @@ async function resume(target: GrimoireSessionDTO) {
             <p v-if="lastResult.shieldUsed" class="flex items-center gap-2 text-sm font-semibold text-sky-300">
               <Gem :size="14" /> Seu Escudo de Cristal absorveu o golpe! Tente novamente, sem perder HP.
             </p>
+            <p v-else-if="lastResult.dodged" class="flex items-center gap-2 text-sm font-semibold text-violet-300">
+              <VenetianMask :size="14" /> Você fintou o destino! O erro não contou. Tente novamente.
+            </p>
             <template v-else>
               <p class="text-sm" :class="lastResult.correct ? 'text-emerald-400' : 'text-red-400'">
                 {{ lastResult.correct ? 'Acertou! Dano no chefe.' : `Errou. Você perdeu ${hpLossLastAnswer} HP.` }}
@@ -255,7 +266,9 @@ async function resume(target: GrimoireSessionDTO) {
                 <Skull :size="14" /> Seu HP chegou a 0 — você recaiu (veja o Dashboard).
               </p>
             </template>
-            <Button class="rounded-full" @click="nextQuestion">{{ lastResult.shieldUsed ? 'Tentar novamente' : 'Continuar' }}</Button>
+            <Button class="rounded-full" @click="nextQuestion">
+              {{ lastResult.shieldUsed || lastResult.dodged ? 'Tentar novamente' : 'Continuar' }}
+            </Button>
           </div>
           <Button v-else class="mt-4 rounded-full" :disabled="selectedOption === null || answering" @click="submitAnswer">
             {{ answering ? 'Atacando…' : 'Responder' }}

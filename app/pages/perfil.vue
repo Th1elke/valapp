@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Award, Camera, Coins, Flame, Heart, Shield, Sparkles, Sword, Wand2 } from 'lucide-vue-next'
+import { Award, Camera, Coins, Flame, Heart, Music2, Shield, Sparkles, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -93,6 +93,9 @@ const classOptions: { value: PlayerClass; label: string; icon: typeof Sword; des
   { value: 'guerreiro', label: 'Guerreiro', icon: Sword, description: '+15% XP em hábitos Físicos' },
   { value: 'mago', label: 'Mago', icon: Wand2, description: '+15% XP em hábitos de Mente' },
   { value: 'paladino', label: 'Paladino', icon: Shield, description: 'Reduz perda de HP em 50%' },
+  { value: 'arqueiro', label: 'Arqueiro', icon: Target, description: 'Bônus fixo de XP a cada 5º check-in em sequência' },
+  { value: 'ladino', label: 'Ladino', icon: VenetianMask, description: 'Chance de XP em dobro em check-ins de Criatividade' },
+  { value: 'bardo', label: 'Bardo', icon: Music2, description: 'Sequência quebrada em hábito Social vira metade, não zero' },
 ]
 
 async function pickClass(playerClass: PlayerClass) {
@@ -105,11 +108,19 @@ async function pickClass(playerClass: PlayerClass) {
   }
 }
 
-const milestones = [
+const milestones = computed(() => [
   { level: 5, label: 'Escolha de classe', icon: Sparkles },
-  { level: 15, label: 'Sub-evolução (Cavaleiro / Arcanista / Templário)', icon: Award },
-  { level: 30, label: 'Sub-evolução máxima (Campeão / Arquimago / Cruzado)', icon: Award },
-]
+  {
+    level: 15,
+    label: user.value?.playerClass ? `Sub-evolução (${getClassInfo(user.value.playerClass, 15).label})` : 'Sub-evolução',
+    icon: Award,
+  },
+  {
+    level: 30,
+    label: user.value?.playerClass ? `Sub-evolução máxima (${getClassInfo(user.value.playerClass, 30).label})` : 'Sub-evolução máxima',
+    icon: Award,
+  },
+])
 </script>
 
 <template>
@@ -140,8 +151,8 @@ const milestones = [
         </button>
         <input ref="coverInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" @change="onCoverSelected" />
 
-        <div class="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-4 p-6">
-          <div class="group/avatar relative z-10 shrink-0">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-4 p-6">
+          <div class="group/avatar pointer-events-auto relative z-10 shrink-0">
             <ClassAvatar
               :player-class="user.playerClass"
               :level="user.level"
@@ -170,7 +181,7 @@ const milestones = [
           </div>
         </div>
         <div class="pointer-events-none absolute inset-y-0 right-6 hidden w-52 items-center sm:flex">
-          <div class="pointer-events-auto w-full">
+          <div class="w-full">
             <p class="text-sm text-white drop-shadow-md">Nível {{ user.level }} · {{ user.xp }} XP total</p>
             <Progress :model-value="xpIntoLevel" :max="xpNeeded" class="mt-2 glow-primary" />
             <p class="mt-1 text-xs text-white/80 drop-shadow-md">{{ xpIntoLevel }} / {{ xpNeeded }} XP para o nível {{ user.level + 1 }}</p>

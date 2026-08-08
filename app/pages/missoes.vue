@@ -1,25 +1,31 @@
 <script setup lang="ts">
-import { Check, Coins, Plus, Sparkles, Trash2, X } from 'lucide-vue-next'
+import { Check, Clock, Coins, Plus, Sparkles, Trash2, X } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { missionGoldReward, missionXpReward } from '#shared/gamification'
-import { difficultyLabel, type HabitDifficulty } from '#shared/types'
+import { categoryLabel, difficultyLabel, type HabitCategory, type HabitDifficulty } from '#shared/types'
 
 const { data: missions, refresh } = useMissions()
 const { refresh: refreshUser } = useUserState()
 
 const difficulties = Object.keys(difficultyLabel) as HabitDifficulty[]
+const categories = Object.keys(categoryLabel) as HabitCategory[]
 
 const showForm = ref(false)
 const newTitle = ref('')
 const newDescription = ref('')
+const newCategory = ref<HabitCategory | 'nenhuma'>('nenhuma')
 const newDifficulty = ref<HabitDifficulty>('facil')
+const newDeadline = ref('')
+const noDeadline = ref(true)
 const creating = ref(false)
 const formError = ref('')
 const completingId = ref<string | null>(null)
 const lastReward = ref<{ xp: number; gold: number } | null>(null)
+
+const todayInputMin = new Date().toISOString().slice(0, 10)
 
 async function submitNewMission() {
   if (!newTitle.value.trim()) {
@@ -29,10 +35,19 @@ async function submitNewMission() {
   creating.value = true
   formError.value = ''
   try {
-    await createMission({ title: newTitle.value, description: newDescription.value, difficulty: newDifficulty.value })
+    await createMission({
+      title: newTitle.value,
+      description: newDescription.value,
+      category: newCategory.value === 'nenhuma' ? null : newCategory.value,
+      difficulty: newDifficulty.value,
+      deadline: noDeadline.value ? null : newDeadline.value || null,
+    })
     newTitle.value = ''
     newDescription.value = ''
+    newCategory.value = 'nenhuma'
     newDifficulty.value = 'facil'
+    newDeadline.value = ''
+    noDeadline.value = true
     showForm.value = false
     await refresh()
   } catch (err) {
@@ -40,6 +55,15 @@ async function submitNewMission() {
   } finally {
     creating.value = false
   }
+}
+
+function formatDeadline(deadline: string) {
+  const [year, month, day] = deadline.split('-')
+  return `${day}/${month}/${year}`
+}
+
+function isOverdue(deadline: string) {
+  return deadline < new Date().toISOString().slice(0, 10)
 }
 
 async function complete(id: string) {
@@ -86,6 +110,25 @@ async function cancel(id: string) {
             </SelectItem>
           </SelectContent>
         </Select>
+
+        <Select v-model="newCategory">
+          <SelectTrigger>
+            <SelectValue placeholder="Categoria (opcional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="nenhuma">Sem categoria</SelectItem>
+            <SelectItem v-for="c in categories" :key="c" :value="c">{{ categoryLabel[c] }}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div class="flex flex-wrap items-center gap-3 sm:col-span-3">
+          <label class="flex items-center gap-2 text-sm text-muted-foreground">
+            <input v-model="noDeadline" type="checkbox" class="rounded border-white/20" />
+            Sem prazo
+          </label>
+          <Input v-if="!noDeadline" v-model="newDeadline" type="date" :min="todayInputMin" class="w-auto" />
+        </div>
+
         <Button :disabled="creating" class="sm:col-span-3" @click="submitNewMission">
           {{ creating ? 'Criando…' : 'Criar missão' }}
         </Button>
@@ -103,10 +146,14 @@ async function cancel(id: string) {
           <p class="font-medium">{{ mission.title }}</p>
           <p v-if="mission.description" class="text-sm text-muted-foreground">{{ mission.description }}</p>
           <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Badge v-if="mission.category" :variant="mission.category">{{ categoryLabel[mission.category] }}</Badge>
             <Badge variant="secondary">{{ difficultyLabel[mission.difficulty] }}</Badge>
             <Badge variant="warning">+{{ mission.xpReward }} XP</Badge>
             <Badge variant="warning" class="flex items-center gap-1">
               <Coins :size="10" /> +{{ mission.goldReward }}
+            </Badge>
+            <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
+              <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDeadline(mission.deadline) }}
             </Badge>
           </div>
         </div>

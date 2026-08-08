@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { grimoireSessions } from '~~/db/schema'
-import { DEMO_USER_ID } from '#shared/constants'
 import { hasSkill } from '#shared/skills'
 
 interface RevealHintResultDTO {
@@ -18,6 +17,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default defineEventHandler(async (event): Promise<RevealHintResultDTO> => {
+  const userId = await requireUserId(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'id é obrigatório.' })
 
@@ -31,7 +31,7 @@ export default defineEventHandler(async (event): Promise<RevealHintResultDTO> =>
     const session = tx
       .select()
       .from(grimoireSessions)
-      .where(and(eq(grimoireSessions.id, id), eq(grimoireSessions.userId, DEMO_USER_ID)))
+      .where(and(eq(grimoireSessions.id, id), eq(grimoireSessions.userId, userId)))
       .get()
     if (!session) throw createError({ statusCode: 404, statusMessage: 'Sessão não encontrada.' })
     if (session.status === 'concluida') throw createError({ statusCode: 400, statusMessage: 'Batalha já concluída.' })
@@ -42,11 +42,11 @@ export default defineEventHandler(async (event): Promise<RevealHintResultDTO> =>
       throw createError({ statusCode: 409, statusMessage: 'Essa pergunta já foi respondida.' })
     }
 
-    const skills = getUnlockedSkillIds(tx, DEMO_USER_ID)
+    const skills = getUnlockedSkillIds(tx, userId)
     const manipulacaoFree = hasSkill(skills, 'mago_manipulacao_destino') && !session.manipulacaoUsada
 
     if (!manipulacaoFree) {
-      const { hadItem } = consumeInventoryItem(tx, DEMO_USER_ID, 'olho_visao', skills)
+      const { hadItem } = consumeInventoryItem(tx, userId, 'olho_visao', skills)
       if (!hadItem) throw createError({ statusCode: 400, statusMessage: 'Você não tem o Olho da Visão Verdadeira.' })
     }
 

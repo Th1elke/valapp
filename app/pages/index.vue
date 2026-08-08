@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { TITLES } from '#shared/cosmetics'
+import { todayStr } from '#shared/date'
 import { getClassInfo } from '#shared/gamification'
+import { isHabitScheduled } from '#shared/habitSchedule'
 import type { DailyClosureResultDTO } from '#shared/types'
 
 const { data: user, refresh: refreshUser } = useUserState()
@@ -75,7 +77,10 @@ const equippedTitleName = computed(() => TITLES.find((t) => t.id === user.value?
 const xpIntoLevel = computed(() => (user.value ? user.value.xp - user.value.xpFloor : 0))
 const xpNeeded = computed(() => (user.value ? Math.max(1, user.value.xpCeil - user.value.xpFloor) : 1))
 
-const activeHabits = computed(() => (habits.value ?? []).filter((h) => h.status === 'ativo'))
+const today = todayStr()
+const activeHabits = computed(() =>
+  (habits.value ?? []).filter((h) => h.status === 'ativo' && isHabitScheduled(h.frequency, h.customDays, today)),
+)
 const doneCount = computed(() => activeHabits.value.filter((h) => h.doneToday).length)
 const isPerfectDay = computed(() => activeHabits.value.length > 0 && doneCount.value === activeHabits.value.length)
 </script>
