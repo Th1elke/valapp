@@ -26,6 +26,8 @@ export default defineEventHandler((): HabitDTO[] => {
         status: h.status,
         streakCount: h.streakCount,
         longestStreak: h.longestStreak,
+        lastBrokenStreak: h.lastBrokenStreak,
+        dominatedAt: h.dominatedAt,
         doneToday: !!done,
       }
     })

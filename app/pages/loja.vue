@@ -1,28 +1,67 @@
 <script setup lang="ts">
-import { Coins, Heart, ShieldPlus } from 'lucide-vue-next'
+import { Coins, Crown, Eye, Feather, Gem, Heart, Hourglass, ShieldPlus, Sparkles, Zap } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { MAX_SHIELDS, SHOP_ITEMS } from '#shared/economy'
+import { COSMETIC_ITEMS, type CosmeticCategory } from '#shared/cosmetics'
+import { getEffectiveCost, getMaxShields, SHOP_ITEMS, type ShopItem, type ShopItemId } from '#shared/economy'
+
+const cosmeticIcons: Record<CosmeticCategory, typeof Crown> = { titulo: Crown, borda: Gem, tema: Sparkles }
 
 const { data: user, refresh: refreshUser } = useUserState()
+const { data: habits } = useHabits()
 
-const itemIcons = { potion: Heart, shield: ShieldPlus }
+const itemIcons: Record<ShopItemId, typeof Heart> = {
+  potion_small: Heart,
+  potion_medium: Heart,
+  potion_large: Heart,
+  shield: ShieldPlus,
+  olho_visao: Eye,
+  escudo_cristal: Gem,
+  elixir_erudito: Zap,
+  pena_magica: Feather,
+  ampulheta_tempo: Hourglass,
+  ticket_estalagem: Coins,
+}
+
+const eligibleHabitsForRestore = computed(() => (habits.value ?? []).filter((h) => h.lastBrokenStreak != null))
+const selectedHabitId = ref<string>('')
 
 const buying = ref<string | null>(null)
 const error = ref('')
 
-function canBuy(itemId: 'potion' | 'shield', cost: number) {
+const maxShields = computed(() => getMaxShields(user.value?.unlockedSkills ?? []))
+
+function effectiveCost(item: ShopItem) {
+  return getEffectiveCost(item, user.value?.unlockedSkills ?? [])
+}
+
+function canBuy(item: ShopItem) {
   if (!user.value) return false
-  if (user.value.gold < cost) return false
-  if (itemId === 'shield' && user.value.shieldsRemaining >= MAX_SHIELDS) return false
+  if (user.value.gold < effectiveCost(item)) return false
+  if (item.effect.kind === 'shield' && user.value.shieldsRemaining >= maxShields.value) return false
+  if (item.effect.kind === 'rest_day' && user.value.restDayDate) return false
+  if (item.effect.kind === 'streak_restore' && (!selectedHabitId.value || eligibleHabitsForRestore.value.length === 0)) return false
   return true
 }
 
-async function buy(itemId: 'potion' | 'shield') {
-  buying.value = itemId
+async function buy(item: ShopItem) {
+  buying.value = item.id
   error.value = ''
   try {
-    await purchaseItem(itemId)
+    await purchaseItem(item.id, item.effect.kind === 'streak_restore' ? { targetHabitId: selectedHabitId.value } : undefined)
+    await refreshUser()
+  } catch (err) {
+    error.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível comprar.'
+  } finally {
+    buying.value = null
+  }
+}
+
+async function buyCosmetic(cosmeticId: string) {
+  buying.value = cosmeticId
+  error.value = ''
+  try {
+    await purchaseCosmetic(cosmeticId)
     await refreshUser()
   } catch (err) {
     error.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível comprar.'
@@ -60,25 +99,82 @@ async function buy(itemId: 'potion' | 'shield') {
             </div>
           </div>
 
+          <select
+            v-if="item.effect.kind === 'streak_restore'"
+            v-model="selectedHabitId"
+            class="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-sm text-foreground"
+          >
+            <option value="" disabled>Escolha o hábito…</option>
+            <option v-for="h in eligibleHabitsForRestore" :key="h.id" :value="h.id">
+              {{ h.name }} (sequência perdida: {{ h.lastBrokenStreak }})
+            </option>
+          </select>
+          <p v-if="item.effect.kind === 'streak_restore' && eligibleHabitsForRestore.length === 0" class="text-xs text-muted-foreground">
+            Nenhum hábito com sequência recente para restaurar.
+          </p>
+
           <div class="flex items-center justify-between">
             <span class="flex items-center gap-1 text-sm font-semibold text-amber-400">
-              <Coins :size="14" /> {{ item.cost }}
+              <Coins :size="14" />
+              <template v-if="effectiveCost(item) < item.cost">
+                <span class="text-muted-foreground line-through">{{ item.cost }}</span> {{ effectiveCost(item) }}
+              </template>
+              <template v-else>{{ item.cost }}</template>
             </span>
             <Button
               size="sm"
               class="rounded-full"
-              :disabled="!canBuy(item.id, item.cost) || buying === item.id"
-              @click="buy(item.id)"
+              :disabled="!canBuy(item) || buying === item.id"
+              @click="buy(item)"
             >
               {{ buying === item.id ? 'Comprando…' : 'Comprar' }}
             </Button>
           </div>
 
-          <p v-if="item.id === 'shield' && user.shieldsRemaining >= MAX_SHIELDS" class="text-xs text-muted-foreground">
-            Máximo de {{ MAX_SHIELDS }} escudos atingido.
+          <p v-if="item.effect.kind === 'shield' && user.shieldsRemaining >= maxShields" class="text-xs text-muted-foreground">
+            Máximo de {{ maxShields }} escudos atingido.
+          </p>
+          <p v-if="item.effect.kind === 'inventory'" class="text-xs text-muted-foreground">
+            Você tem {{ user.inventory[item.effect.itemId] ?? 0 }}
+          </p>
+          <p v-if="item.effect.kind === 'rest_day' && user.restDayDate" class="text-xs text-muted-foreground">
+            Ticket já ativo para hoje.
           </p>
         </CardContent>
       </Card>
+    </div>
+
+    <div>
+      <h2 class="mb-3 text-lg font-semibold">Cosméticos</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <Card v-for="cosmetic in COSMETIC_ITEMS" :key="cosmetic.id" class="glass-panel border-0">
+          <CardContent class="flex flex-col gap-4 pt-6">
+            <div class="flex items-center gap-3">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-400 to-violet-600">
+                <component :is="cosmeticIcons[cosmetic.category]" :size="22" class="text-white" />
+              </div>
+              <div class="min-w-0">
+                <p class="font-medium">{{ cosmetic.name }}</p>
+                <p class="text-sm text-muted-foreground">{{ cosmetic.description }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1 text-sm font-semibold text-amber-400">
+                <Coins :size="14" /> {{ cosmetic.cost }}
+              </span>
+              <Button
+                size="sm"
+                class="rounded-full"
+                :disabled="user.ownedCosmetics.includes(cosmetic.id) || user.gold < cosmetic.cost || buying === cosmetic.id"
+                @click="buyCosmetic(cosmetic.id)"
+              >
+                {{ user.ownedCosmetics.includes(cosmetic.id) ? 'Adquirido' : buying === cosmetic.id ? 'Comprando…' : 'Comprar' }}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   </div>
 </template>

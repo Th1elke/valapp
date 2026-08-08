@@ -1,3 +1,5 @@
+import type { InventoryItemId } from './economy'
+
 export type HabitCategory = 'fisico' | 'mente' | 'disciplina' | 'social' | 'criatividade'
 export type HabitDifficulty = 'facil' | 'medio' | 'dificil'
 export type HabitFrequency = 'diaria' | 'semanal' | 'dias_customizados'
@@ -45,6 +47,8 @@ export interface HabitDTO {
   status: HabitStatus
   streakCount: number
   longestStreak: number
+  lastBrokenStreak: number | null
+  dominatedAt: string | null
   doneToday: boolean
 }
 
@@ -58,6 +62,16 @@ export interface UserStateDTO {
   shieldsRemaining: number
   xpFloor: number
   xpCeil: number
+  inventory: Partial<Record<InventoryItemId, number>>
+  restDayDate: string | null
+  equippedTitle: string | null
+  equippedAvatarBorder: string | null
+  equippedTheme: string | null
+  ownedCosmetics: string[]
+  avatarUrl: string | null
+  coverUrl: string | null
+  unlockedSkills: string[]
+  availableSkillPoints: number
 }
 
 export interface MissionDTO {
@@ -105,13 +119,14 @@ export interface GrimoireSessionDTO {
   status: GrimoireStatus
   correctCount: number | null
   xpAwarded: number | null
+  xpBoosted: boolean
   createdAt: string
 }
 
 export interface GrimoireAnswerResultDTO {
   correct: boolean
-  correctIndex: number
-  explanation: string
+  correctIndex: number | null
+  explanation: string | null
   hp: number
   relapsed: boolean
   battleComplete: boolean
@@ -119,4 +134,5 @@ export interface GrimoireAnswerResultDTO {
   correctCount: number | null
   level: number
   leveledUp: boolean
+  shieldUsed: boolean
 }

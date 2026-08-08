@@ -12,6 +12,7 @@ export function toSessionDTO(session: SessionRow): GrimoireSessionDTO {
     status: session.status,
     correctCount: session.correctCount,
     xpAwarded: session.xpAwarded,
+    xpBoosted: session.xpBoosted,
     createdAt: session.createdAt,
   }
 }

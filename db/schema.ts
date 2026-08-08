@@ -31,11 +31,21 @@ export const hpEventTypes = [
   'escudo_usado',
   'pocao_cura',
   'grimorio_erro',
+  'penitencia',
 ] as const
-export const goldEventTypes = ['checkin', 'dia_perfeito', 'missao', 'compra', 'ajuste_manual'] as const
+export const goldEventTypes = ['checkin', 'dia_perfeito', 'missao', 'compra', 'ajuste_manual', 'grimorio'] as const
 export const shieldTargetTypes = ['protecao_dia', 'protecao_streak'] as const
 export const missionStatuses = ['ativa', 'concluida', 'cancelada'] as const
 export const grimoireStatuses = ['gerado', 'concluida'] as const
+export const inventoryItemIds = [
+  'potion_small',
+  'potion_medium',
+  'potion_large',
+  'olho_visao',
+  'escudo_cristal',
+  'elixir_erudito',
+  'pena_magica',
+] as const
 
 export const users = sqliteTable('users', {
   id: id(),
@@ -55,6 +65,14 @@ export const users = sqliteTable('users', {
 
   shieldsRemaining: integer('shields_remaining').notNull().default(1),
   shieldWeekStart: text('shield_week_start'),
+
+  restDayDate: text('rest_day_date'),
+
+  equippedTitle: text('equipped_title'),
+  equippedAvatarBorder: text('equipped_avatar_border'),
+  equippedTheme: text('equipped_theme'),
+  avatarUrl: text('avatar_url'),
+  coverUrl: text('cover_url'),
 
   createdAt: createdAt(),
   updatedAt: createdAt(),
@@ -77,6 +95,9 @@ export const habits = sqliteTable('habits', {
 
   streakCount: integer('streak_count').notNull().default(0),
   longestStreak: integer('longest_streak').notNull().default(0),
+  lastBrokenStreak: integer('last_broken_streak'),
+  lastBrokenStreakDate: text('last_broken_streak_date'),
+  dominatedAt: text('dominated_at'),
 
   createdAt: createdAt(),
   updatedAt: createdAt(),
@@ -178,9 +199,52 @@ export const grimoireSessions = sqliteTable('grimoire_sessions', {
   status: text('status', { enum: grimoireStatuses }).notNull().default('gerado'),
   correctCount: integer('correct_count'),
   xpAwarded: integer('xp_awarded'),
+  xpBoosted: integer('xp_boosted', { mode: 'boolean' }).notNull().default(false),
+  clarividenciaUsed: integer('clarividencia_used', { mode: 'boolean' }).notNull().default(false),
+  manipulacaoUsada: integer('manipulacao_usada', { mode: 'boolean' }).notNull().default(false),
   createdAt: createdAt(),
   completedAt: text('completed_at'),
 })
+
+export const userSkills = sqliteTable(
+  'user_skills',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id').notNull(),
+    unlockedAt: createdAt(),
+  },
+  (table) => [uniqueIndex('user_skills_user_skill_unique').on(table.userId, table.skillId)],
+)
+
+export const userInventory = sqliteTable(
+  'user_inventory',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    itemId: text('item_id', { enum: inventoryItemIds }).notNull(),
+    quantity: integer('quantity').notNull().default(0),
+    updatedAt: createdAt(),
+  },
+  (table) => [uniqueIndex('user_inventory_user_item_unique').on(table.userId, table.itemId)],
+)
+
+export const userCosmetics = sqliteTable(
+  'user_cosmetics',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    cosmeticId: text('cosmetic_id').notNull(),
+    unlockedAt: createdAt(),
+  },
+  (table) => [uniqueIndex('user_cosmetics_user_cosmetic_unique').on(table.userId, table.cosmeticId)],
+)
 
 export const shieldUses = sqliteTable(
   'shield_uses',

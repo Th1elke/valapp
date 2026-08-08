@@ -22,6 +22,48 @@
       "when": 1786135074756,
       "tag": "0002_thankful_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786146799836,
+      "tag": "0003_wandering_firebrand",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786147251558,
+      "tag": "0004_furry_loners",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786148392142,
+      "tag": "0005_even_unicorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786152481413,
+      "tag": "0006_yellow_ben_urich",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786154681690,
+      "tag": "0007_damp_tinkerer",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786161254715,
+      "tag": "0008_graceful_hardball",
+      "breakpoints": true
     }
   ]
 }

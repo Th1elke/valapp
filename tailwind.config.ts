@@ -10,6 +10,7 @@ export default {
     './app/app.vue',
     './app/error.vue',
     './app/lib/**/*.{js,ts}',
+    './shared/**/*.ts',
   ],
   theme: {
     container: {

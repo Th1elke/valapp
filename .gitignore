@@ -26,3 +26,6 @@ logs
 # Local SQLite database
 db/local.db
 db/local.db-*
+
+# User-uploaded avatars (local dev storage)
+public/uploads

@@ -18,7 +18,7 @@ const percent = computed(() => Math.max(0, Math.min(100, (props.modelValue / pro
 <template>
   <div :class="cn('h-2 w-full overflow-hidden rounded-full bg-white/10', props.class)">
     <div
-      :class="cn('h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500', props.barClass)"
+      :class="cn('h-full rounded-full bg-gradient-to-r from-primary to-primary/50 transition-all duration-500', props.barClass)"
       :style="{ width: `${percent}%` }"
     />
   </div>

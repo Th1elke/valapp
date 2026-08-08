@@ -11,3 +11,19 @@ export function chooseClass(playerClass: PlayerClass) {
 export function runDailyClosure(date?: string) {
   return $fetch<DailyClosureResultDTO>('/api/daily-closure', { method: 'POST', body: date ? { date } : {} })
 }
+
+export function uploadAvatar(file: File) {
+  const body = new FormData()
+  body.append('avatar', file)
+  return $fetch<UserStateDTO>('/api/user/avatar', { method: 'POST', body })
+}
+
+export function updateUserName(name: string) {
+  return $fetch<UserStateDTO>('/api/user/name', { method: 'POST', body: { name } })
+}
+
+export function uploadCover(file: File) {
+  const body = new FormData()
+  body.append('cover', file)
+  return $fetch<UserStateDTO>('/api/user/cover', { method: 'POST', body })
+}

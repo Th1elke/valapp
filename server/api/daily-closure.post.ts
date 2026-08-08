@@ -7,11 +7,12 @@ import {
   HP_REGEN_PERFECT_DAY,
   PERFECT_DAY_GOLD_BONUS,
   PERFECT_DAY_XP_BONUS,
-  RELAPSE_HP_RESTORE,
   computeHpLoss,
+  computeRelapseXp,
+  getRelapseHpRestore,
   levelForXp,
-  xpForLevel,
 } from '#shared/gamification'
+import { hasSkill } from '#shared/skills'
 
 /**
  * Closes a given day for the demo user: applies HP loss for habits missed that day,
@@ -35,6 +36,34 @@ export default defineEventHandler(async (event) => {
     const user = tx.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário demo não encontrado.' })
 
+    const skills = getUnlockedSkillIds(tx, DEMO_USER_ID)
+
+    if (user.restDayDate === closureDate) {
+      const gracaEstalagem = hasSkill(skills, 'paladino_graca_estalagem')
+      const hp = gracaEstalagem ? Math.min(HP_MAX, user.hp + 25) : user.hp
+      tx.update(users)
+        .set({ restDayDate: null, hp, updatedAt: new Date().toISOString() })
+        .where(eq(users.id, DEMO_USER_ID))
+        .run()
+      if (gracaEstalagem && hp !== user.hp) {
+        tx.insert(hpEvents).values({ userId: DEMO_USER_ID, type: 'regen_dia_perfeito', amount: hp - user.hp, hpAfter: hp }).run()
+      }
+
+      return tx
+        .insert(dailyClosures)
+        .values({
+          userId: DEMO_USER_ID,
+          closureDate,
+          perfectDay: false,
+          relapsed: false,
+          xpChange: 0,
+          hpChange: hp - user.hp,
+          goldChange: 0,
+        })
+        .returning()
+        .get()
+    }
+
     const activeHabits = tx.select().from(habits).where(and(eq(habits.userId, DEMO_USER_ID), eq(habits.status, 'ativo'))).all()
     // Only habits that already existed on the closure date can be "missed" that day.
     const eligibleHabits = activeHabits.filter((h) => h.createdAt.slice(0, 10) <= closureDate)
@@ -45,27 +74,40 @@ export default defineEventHandler(async (event) => {
     const perfectDay = eligibleHabits.length > 0 && missed.length === 0
 
     for (const habit of missed) {
-      tx.update(habits).set({ streakCount: 0, updatedAt: new Date().toISOString() }).where(eq(habits.id, habit.id)).run()
+      tx.update(habits)
+        .set({
+          streakCount: 0,
+          dominatedAt: null,
+          lastBrokenStreak: habit.streakCount > 0 ? habit.streakCount : habit.lastBrokenStreak,
+          lastBrokenStreakDate: habit.streakCount > 0 ? closureDate : habit.lastBrokenStreakDate,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(habits.id, habit.id))
+        .run()
     }
 
-    const totalHpLoss = missed.reduce((sum, h) => sum + computeHpLoss(h.difficulty, user.playerClass, user.level), 0)
+    const totalHpLoss = missed.reduce((sum, h) => sum + computeHpLoss(h.difficulty, user.playerClass, user.level, skills), 0)
+
+    const tudoOuNada = hasSkill(skills, 'guerreiro_tudo_ou_nada')
+    const perfectXpBonus = perfectDay ? PERFECT_DAY_XP_BONUS * (tudoOuNada ? 3 : 1) : 0
+    const perfectGoldBonus = perfectDay ? PERFECT_DAY_GOLD_BONUS * (tudoOuNada ? 3 : 1) : 0
 
     let hp = perfectDay ? Math.min(HP_MAX, user.hp + HP_REGEN_PERFECT_DAY) : Math.max(0, user.hp - totalHpLoss)
-    let xp = perfectDay ? user.xp + PERFECT_DAY_XP_BONUS : user.xp
-    const gold = perfectDay ? user.gold + PERFECT_DAY_GOLD_BONUS : user.gold
+    let xp = perfectDay ? user.xp + perfectXpBonus : user.xp
+    const gold = perfectDay ? user.gold + perfectGoldBonus : user.gold
     let level = levelForXp(xp)
     let relapsed = false
 
     if (hp <= 0) {
       relapsed = true
-      const relapseLevel = Math.max(1, user.level - 1)
-      const relapseXp = xpForLevel(relapseLevel)
+      const relapseXp = computeRelapseXp(xp)
+      const relapseLevel = levelForXp(relapseXp)
       tx.insert(xpEvents)
         .values({ userId: DEMO_USER_ID, type: 'penalidade_recaida', amount: relapseXp - xp, balanceAfter: relapseXp })
         .run()
       xp = relapseXp
       level = relapseLevel
-      hp = RELAPSE_HP_RESTORE
+      hp = getRelapseHpRestore(skills)
       tx.insert(hpEvents).values({ userId: DEMO_USER_ID, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp }).run()
     } else {
       tx.insert(hpEvents)
@@ -79,10 +121,8 @@ export default defineEventHandler(async (event) => {
     }
 
     if (perfectDay) {
-      tx.insert(xpEvents).values({ userId: DEMO_USER_ID, type: 'dia_perfeito', amount: PERFECT_DAY_XP_BONUS, balanceAfter: xp }).run()
-      tx.insert(goldEvents)
-        .values({ userId: DEMO_USER_ID, type: 'dia_perfeito', amount: PERFECT_DAY_GOLD_BONUS, balanceAfter: gold })
-        .run()
+      tx.insert(xpEvents).values({ userId: DEMO_USER_ID, type: 'dia_perfeito', amount: perfectXpBonus, balanceAfter: xp }).run()
+      tx.insert(goldEvents).values({ userId: DEMO_USER_ID, type: 'dia_perfeito', amount: perfectGoldBonus, balanceAfter: gold }).run()
     }
 
     tx.update(users).set({ xp, level, hp, gold, updatedAt: new Date().toISOString() }).where(eq(users.id, DEMO_USER_ID)).run()

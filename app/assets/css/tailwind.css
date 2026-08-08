@@ -70,4 +70,59 @@
   .glass-inset {
     @apply rounded-2xl border border-white/5 bg-white/[0.03];
   }
+  .hero-panel {
+    @apply glass-panel border-primary/20 shadow-[0_0_60px_-15px_hsl(var(--primary)/0.5)];
+  }
+  .glow-primary {
+    box-shadow: 0 0 24px -6px hsl(var(--primary) / 0.55);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Animated avatar borders — applied to an unclipped wrapper, see ClassAvatar.vue */
+  .border-anim-rainbow,
+  .border-anim-pulse {
+    position: relative;
+  }
+  .border-anim-rainbow::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    z-index: -1;
+    border-radius: 9999px;
+    background: conic-gradient(from 0deg, #f43f5e, #f59e0b, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #f43f5e);
+    animation: border-anim-spin 3s linear infinite;
+  }
+  .border-anim-pulse::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    z-index: -1;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    animation: border-anim-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes border-anim-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes border-anim-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 }

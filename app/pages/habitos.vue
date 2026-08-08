@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Flame, Pause, Play, Plus, Trophy, X } from 'lucide-vue-next'
+import { Crown, Flame, Pause, Play, Plus, Trophy, X } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -98,6 +98,9 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge :variant="habit.category">{{ categoryLabel[habit.category] }}</Badge>
             <Badge variant="secondary">{{ difficultyLabel[habit.difficulty] }} · {{ DIFFICULTY_XP[habit.difficulty] }} XP</Badge>
+            <Badge v-if="habit.dominatedAt" variant="warning" class="inline-flex items-center gap-1">
+              <Crown :size="10" /> Dominado
+            </Badge>
           </div>
         </div>
 

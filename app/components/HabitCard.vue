@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Flame, Pause } from 'lucide-vue-next'
+import { Check, Crown, Flame, Pause } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { DIFFICULTY_XP } from '#shared/gamification'
 import { categoryLabel, difficultyLabel, type HabitDTO } from '#shared/types'
@@ -19,7 +19,7 @@ const emit = defineEmits<{ toggle: [id: string] }>()
       class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors"
       :class="
         props.habit.doneToday
-          ? 'border-transparent bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white'
+          ? 'border-transparent bg-gradient-to-br from-primary to-primary/50 text-white'
           : 'border-white/15 bg-white/5 text-transparent hover:border-white/30'
       "
       @click="emit('toggle', props.habit.id)"
@@ -32,6 +32,9 @@ const emit = defineEmits<{ toggle: [id: string] }>()
       <div class="mt-1 flex flex-wrap items-center gap-1.5">
         <Badge :variant="props.habit.category">{{ categoryLabel[props.habit.category] }}</Badge>
         <Badge variant="secondary">{{ difficultyLabel[props.habit.difficulty] }} · {{ DIFFICULTY_XP[props.habit.difficulty] }} XP</Badge>
+        <Badge v-if="props.habit.dominatedAt" variant="warning" class="inline-flex items-center gap-1">
+          <Crown :size="10" /> Dominado
+        </Badge>
         <span v-if="props.habit.status === 'pausado'" class="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Pause :size="12" /> Pausado
         </span>

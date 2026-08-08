@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { Check, Flame, Skull, Sparkles, Swords, X } from 'lucide-vue-next'
+import { Check, Eye, Flame, Gem, Skull, Sparkles, Swords, X, Zap } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { GRIMOIRE_HP_LOSS_PER_WRONG } from '#shared/gamification'
+import { GRIMOIRE_MIN_LENGTH } from '#shared/gamification'
 import type { GrimoireAnswerResultDTO, GrimoireSessionDTO } from '#shared/types'
 
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: history, refresh: refreshHistory } = useGrimoireHistory()
 
 const content = ref('')
+const useElixirChecked = ref(false)
 const analyzing = ref(false)
 const analyzeError = ref('')
 
@@ -19,30 +20,43 @@ const selectedOption = ref<number | null>(null)
 const lastResult = ref<GrimoireAnswerResultDTO | null>(null)
 const showFeedback = ref(false)
 const answering = ref(false)
+const eliminatedIndices = ref<number[]>([])
+const revealingHint = ref(false)
+const hpLossLastAnswer = ref(0)
 
 const answeredCount = computed(() => session.value?.answers.length ?? 0)
 const correctSoFar = computed(() => session.value?.answers.filter((a) => a.correct).length ?? 0)
 const battleComplete = computed(() => session.value?.status === 'concluida')
-const currentQuestion = computed(() =>
-  session.value && !battleComplete.value ? session.value.quiz[answeredCount.value] : null,
-)
+const currentQuestionIndex = computed(() => {
+  if (!showFeedback.value) return answeredCount.value
+  if (lastResult.value?.shieldUsed) return answeredCount.value
+  return answeredCount.value - 1
+})
+const currentQuestion = computed(() => session.value?.quiz[currentQuestionIndex.value] ?? null)
 const monsterHpPercent = computed(() => Math.max(0, 100 - (correctSoFar.value / 3) * 100))
 
+const olhoCount = computed(() => user.value?.inventory.olho_visao ?? 0)
+const escudoCount = computed(() => user.value?.inventory.escudo_cristal ?? 0)
+const elixirCount = computed(() => user.value?.inventory.elixir_erudito ?? 0)
+const penaCount = computed(() => user.value?.inventory.pena_magica ?? 0)
+
 async function analyze() {
-  if (content.value.trim().length < 100) {
-    analyzeError.value = 'Cole pelo menos 100 caracteres de conteúdo.'
+  if (content.value.trim().length < GRIMOIRE_MIN_LENGTH) {
+    analyzeError.value = `Cole pelo menos ${GRIMOIRE_MIN_LENGTH} caracteres de conteúdo.`
     return
   }
   analyzing.value = true
   analyzeError.value = ''
   try {
-    session.value = await createGrimoireSession(content.value)
+    session.value = await createGrimoireSession(content.value, useElixirChecked.value)
     selectedOption.value = null
     lastResult.value = null
     showFeedback.value = false
+    eliminatedIndices.value = []
     activeTab.value = 'fogueira'
     content.value = ''
-    await refreshHistory()
+    useElixirChecked.value = false
+    await Promise.all([refreshHistory(), refreshUser()])
   } catch (err) {
     analyzeError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível gerar o quiz.'
   } finally {
@@ -54,16 +68,20 @@ async function submitAnswer() {
   if (selectedOption.value === null || !session.value || battleComplete.value) return
   const qIndex = answeredCount.value
   const picked = selectedOption.value
+  const hpBefore = user.value?.hp ?? 0
   answering.value = true
   try {
     const result = await answerGrimoireQuestion(session.value.id, qIndex, picked)
     lastResult.value = result
+    hpLossLastAnswer.value = Math.max(0, hpBefore - result.hp)
     showFeedback.value = true
-    session.value.answers = [...session.value.answers, { questionIndex: qIndex, selectedOption: picked, correct: result.correct }]
-    if (result.battleComplete) {
-      session.value.status = 'concluida'
-      session.value.correctCount = result.correctCount
-      session.value.xpAwarded = result.xpAwarded
+    if (!result.shieldUsed) {
+      session.value.answers = [...session.value.answers, { questionIndex: qIndex, selectedOption: picked, correct: result.correct }]
+      if (result.battleComplete) {
+        session.value.status = 'concluida'
+        session.value.correctCount = result.correctCount
+        session.value.xpAwarded = result.xpAwarded
+      }
     }
     await Promise.all([refreshUser(), refreshHistory()])
   } finally {
@@ -71,10 +89,24 @@ async function submitAnswer() {
   }
 }
 
+async function useHint() {
+  if (!session.value || olhoCount.value <= 0 || showFeedback.value) return
+  revealingHint.value = true
+  try {
+    const result = await revealGrimoireHint(session.value.id, currentQuestionIndex.value)
+    eliminatedIndices.value = result.eliminatedIndices
+    await refreshUser()
+  } finally {
+    revealingHint.value = false
+  }
+}
+
 function nextQuestion() {
+  const wasShield = lastResult.value?.shieldUsed ?? false
   showFeedback.value = false
   selectedOption.value = null
   lastResult.value = null
+  if (!wasShield) eliminatedIndices.value = []
 }
 
 async function resume(target: GrimoireSessionDTO) {
@@ -82,6 +114,7 @@ async function resume(target: GrimoireSessionDTO) {
   selectedOption.value = null
   lastResult.value = null
   showFeedback.value = false
+  eliminatedIndices.value = []
   activeTab.value = session.value.status === 'concluida' ? 'fogueira' : 'batalha'
 }
 </script>
@@ -100,8 +133,17 @@ async function resume(target: GrimoireSessionDTO) {
         placeholder="Cole aqui suas anotações, trechos de código ou resumos de estudo…"
         class="w-full resize-none rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
+      <label v-if="elixirCount > 0" class="flex items-center gap-2 text-sm text-muted-foreground">
+        <input v-model="useElixirChecked" type="checkbox" class="rounded border-white/20" />
+        <Zap :size="14" class="text-amber-400" />
+        Usar Elixir do Erudito nesta batalha (dobra o XP do chefe) — você tem {{ elixirCount }}
+      </label>
+      <p v-if="penaCount > 0" class="flex items-center gap-2 text-xs text-muted-foreground">
+        <Sparkles :size="12" class="text-fuchsia-400" />
+        Você tem Pena Mágica de Expansão: textos além do limite normal ainda podem gerar um Super Chefe.
+      </p>
       <div class="flex items-center justify-between gap-3">
-        <p class="text-xs text-muted-foreground">{{ content.trim().length }} caracteres (mín. 100)</p>
+        <p class="text-xs text-muted-foreground">{{ content.trim().length }} caracteres (mín. {{ GRIMOIRE_MIN_LENGTH }})</p>
         <Button class="rounded-full" :disabled="analyzing" @click="analyze">
           <Sparkles :size="16" /> {{ analyzing ? 'Invocando o chefe…' : 'Analisar Conhecimento' }}
         </Button>
@@ -155,7 +197,23 @@ async function resume(target: GrimoireSessionDTO) {
         </div>
 
         <div v-if="!battleComplete && currentQuestion">
-          <p class="mb-1 text-xs text-muted-foreground">Pergunta {{ answeredCount + 1 }} de 3</p>
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <p class="text-xs text-muted-foreground">Pergunta {{ currentQuestionIndex + 1 }} de 3</p>
+            <div class="flex items-center gap-2">
+              <span v-if="escudoCount > 0" class="flex items-center gap-1 text-xs text-sky-300" title="Absorve o próximo erro automaticamente">
+                <Gem :size="12" /> {{ escudoCount }}
+              </span>
+              <button
+                v-if="olhoCount > 0"
+                type="button"
+                :disabled="showFeedback || revealingHint || eliminatedIndices.length > 0"
+                class="flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-xs text-amber-300 transition-colors hover:bg-white/5 disabled:cursor-default disabled:opacity-50"
+                @click="useHint"
+              >
+                <Eye :size="12" /> {{ revealingHint ? 'Revelando…' : `Olho (${olhoCount})` }}
+              </button>
+            </div>
+          </div>
           <p class="mb-4 font-medium">{{ currentQuestion.question }}</p>
 
           <div class="grid gap-2">
@@ -163,14 +221,15 @@ async function resume(target: GrimoireSessionDTO) {
               v-for="(option, i) in currentQuestion.options"
               :key="i"
               type="button"
-              :disabled="showFeedback || answering"
+              :disabled="showFeedback || answering || eliminatedIndices.includes(i)"
               class="glass-inset flex items-center gap-3 rounded-2xl border p-3 text-left text-sm transition-colors disabled:cursor-default"
               :class="[
                 selectedOption === i && !showFeedback ? 'border-primary' : 'border-white/5',
+                eliminatedIndices.includes(i) ? 'opacity-30' : '',
                 showFeedback && lastResult && i === lastResult.correctIndex ? 'border-emerald-500 bg-emerald-500/10' : '',
                 showFeedback && lastResult && i === selectedOption && !lastResult.correct ? 'border-red-500 bg-red-500/10' : '',
               ]"
-              @click="!showFeedback && (selectedOption = i)"
+              @click="!showFeedback && !eliminatedIndices.includes(i) && (selectedOption = i)"
             >
               <span
                 class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs"
@@ -184,14 +243,19 @@ async function resume(target: GrimoireSessionDTO) {
           </div>
 
           <div v-if="showFeedback && lastResult" class="mt-4 space-y-3">
-            <p class="text-sm" :class="lastResult.correct ? 'text-emerald-400' : 'text-red-400'">
-              {{ lastResult.correct ? 'Acertou! Dano no chefe.' : `Errou. Você perdeu ${GRIMOIRE_HP_LOSS_PER_WRONG} HP.` }}
+            <p v-if="lastResult.shieldUsed" class="flex items-center gap-2 text-sm font-semibold text-sky-300">
+              <Gem :size="14" /> Seu Escudo de Cristal absorveu o golpe! Tente novamente, sem perder HP.
             </p>
-            <p class="text-sm text-muted-foreground">{{ lastResult.explanation }}</p>
-            <p v-if="lastResult.relapsed" class="flex items-center gap-2 text-sm font-semibold text-red-500">
-              <Skull :size="14" /> Seu HP chegou a 0 — você recaiu (veja o Dashboard).
-            </p>
-            <Button class="rounded-full" @click="nextQuestion">Continuar</Button>
+            <template v-else>
+              <p class="text-sm" :class="lastResult.correct ? 'text-emerald-400' : 'text-red-400'">
+                {{ lastResult.correct ? 'Acertou! Dano no chefe.' : `Errou. Você perdeu ${hpLossLastAnswer} HP.` }}
+              </p>
+              <p v-if="lastResult.explanation" class="text-sm text-muted-foreground">{{ lastResult.explanation }}</p>
+              <p v-if="lastResult.relapsed" class="flex items-center gap-2 text-sm font-semibold text-red-500">
+                <Skull :size="14" /> Seu HP chegou a 0 — você recaiu (veja o Dashboard).
+              </p>
+            </template>
+            <Button class="rounded-full" @click="nextQuestion">{{ lastResult.shieldUsed ? 'Tentar novamente' : 'Continuar' }}</Button>
           </div>
           <Button v-else class="mt-4 rounded-full" :disabled="selectedOption === null || answering" @click="submitAnswer">
             {{ answering ? 'Atacando…' : 'Responder' }}
@@ -199,11 +263,18 @@ async function resume(target: GrimoireSessionDTO) {
         </div>
 
         <div v-else class="text-center">
-          <Sparkles :size="32" class="mx-auto mb-2 text-amber-300" />
-          <p class="text-lg font-semibold">
-            Chefe derrotado! {{ session.correctCount }}/3 acertos
+          <template v-if="session.correctCount === 3">
+            <Sparkles :size="32" class="mx-auto mb-2 text-amber-300" />
+            <p class="text-lg font-semibold">Chefe derrotado! {{ session.correctCount }}/3 acertos</p>
+          </template>
+          <template v-else>
+            <Skull :size="32" class="mx-auto mb-2 text-muted-foreground" />
+            <p class="text-lg font-semibold">O chefe resistiu — {{ session.correctCount }}/3 acertos</p>
+          </template>
+          <p class="text-muted-foreground">
+            +{{ session.xpAwarded }} XP em Inteligência
+            <span v-if="session.xpBoosted" class="text-amber-400">(dobrado pelo Elixir do Erudito)</span>
           </p>
-          <p class="text-muted-foreground">+{{ session.xpAwarded }} XP em Inteligência</p>
         </div>
       </div>
     </div>
