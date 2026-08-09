@@ -81,8 +81,13 @@ const today = todayStr()
 const activeHabits = computed(() =>
   (habits.value ?? []).filter((h) => h.status === 'ativo' && isHabitScheduled(h.frequency, h.customDays, today)),
 )
-const doneCount = computed(() => activeHabits.value.filter((h) => h.doneToday).length)
-const isPerfectDay = computed(() => activeHabits.value.length > 0 && doneCount.value === activeHabits.value.length)
+// Hábitos `semanal` ("N vezes por semana, qualquer dia") não entram na conta de dia perfeito —
+// eles só são avaliados uma vez por semana (server/utils/dailyClosure.ts), então "não feito hoje"
+// não significa nada pra eles isoladamente. Continuam aparecendo na lista "Hábitos de hoje" porque
+// dá pra fazer o check-in em qualquer dia.
+const dailyRatioHabits = computed(() => activeHabits.value.filter((h) => h.frequency !== 'semanal'))
+const doneCount = computed(() => dailyRatioHabits.value.filter((h) => h.doneToday).length)
+const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCount.value === dailyRatioHabits.value.length)
 </script>
 
 <template>
@@ -185,7 +190,7 @@ const isPerfectDay = computed(() => activeHabits.value.length > 0 && doneCount.v
           <Sparkles :size="16" class="text-amber-300" />
         </CardHeader>
         <CardContent>
-          <p class="text-2xl font-semibold">{{ doneCount }} / {{ activeHabits.length }}</p>
+          <p class="text-2xl font-semibold">{{ doneCount }} / {{ dailyRatioHabits.length }}</p>
           <p class="mt-1 text-xs" :class="isPerfectDay ? 'text-emerald-400' : 'text-muted-foreground'">
             {{ isPerfectDay ? 'Dia perfeito! +15 XP e +10 ouro no fechamento do dia' : 'hábitos concluídos' }}
           </p>

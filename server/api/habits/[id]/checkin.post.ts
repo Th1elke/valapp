@@ -22,6 +22,8 @@ export default defineEventHandler(async (event) => {
   const today = todayStr()
 
   return db.transaction(async (tx) => {
+    await resumeExpiredPauses(tx, userId)
+
     const [habit] = await tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId)))
     if (!habit) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
     if (habit.status !== 'ativo') {

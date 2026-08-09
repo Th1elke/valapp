@@ -16,3 +16,9 @@ export function weekStartStr(dateStr: string = todayStr()): string {
   date.setDate(date.getDate() - daysSinceMonday)
   return toDateStr(date)
 }
+
+/** Whether `dateStr` is a Sunday — the day a `semanal` habit's weekly target gets evaluated (week runs Mon–Sun, matching weekStartStr). */
+export function isWeekEndDate(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y!, m! - 1, d!).getDay() === 0
+}

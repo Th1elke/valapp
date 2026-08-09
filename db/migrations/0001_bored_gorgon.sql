@@ -1,0 +1,1 @@
+ALTER TABLE "habits" ADD COLUMN "weekly_target" integer;

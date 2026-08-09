@@ -99,6 +99,8 @@ export const habits = pgTable('habits', {
   difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
   frequency: text('frequency', { enum: habitFrequencies }).notNull().default('diaria'),
   customDays: jsonb('custom_days').$type<number[]>(),
+  /** Only meaningful when frequency === 'semanal' — "N vezes por semana, qualquer dia". */
+  weeklyTarget: integer('weekly_target'),
 
   status: text('status', { enum: habitStatuses }).notNull().default('ativo'),
   pausedFrom: text('paused_from'),

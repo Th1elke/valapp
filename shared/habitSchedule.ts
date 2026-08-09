@@ -10,9 +10,11 @@ export function dateWeekday(dateStr: string): number {
 }
 
 /**
- * Whether a habit is expected on a given date. `diaria`/`semanal` are always scheduled (semanal's
- * flexible "N times this week" mode isn't implemented yet, so it falls back to daily-like behavior
- * rather than silently never counting). Only `dias_customizados` actually gates by weekday.
+ * Whether a habit can receive a check-in on a given date. `diaria`/`semanal` are always allowed —
+ * `semanal` is "N times this week, any day", so every day is fair game for a check-in; whether the
+ * *week* actually met its target is evaluated separately, once a week, in
+ * server/utils/dailyClosure.ts (not here — this function only gates individual check-ins). Only
+ * `dias_customizados` actually restricts by weekday.
  */
 export function isHabitScheduled(frequency: HabitFrequency, customDays: number[] | null | undefined, dateStr: string): boolean {
   if (frequency !== 'dias_customizados') return true

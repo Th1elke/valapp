@@ -32,6 +32,9 @@ const emit = defineEmits<{ toggle: [id: string] }>()
       <div class="mt-1 flex flex-wrap items-center gap-1.5">
         <Badge :variant="props.habit.category">{{ categoryLabel[props.habit.category] }}</Badge>
         <Badge variant="secondary">{{ difficultyLabel[props.habit.difficulty] }} · {{ DIFFICULTY_XP[props.habit.difficulty] }} XP</Badge>
+        <Badge v-if="props.habit.frequency === 'semanal'" variant="secondary">
+          {{ props.habit.weeklyProgress ?? 0 }}/{{ props.habit.weeklyTarget }}× essa semana
+        </Badge>
         <Badge v-if="props.habit.dominatedAt" variant="warning" class="inline-flex items-center gap-1">
           <Crown :size="10" /> Dominado
         </Badge>

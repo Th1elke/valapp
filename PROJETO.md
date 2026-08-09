@@ -75,6 +75,10 @@ Scripts úteis: `npm run db:studio` (abre o Drizzle Studio pra inspecionar o ban
 - **Escudo semanal** (docs seção 5.2): `POST /api/user/shield` gasta um escudo pra proteger o dia inteiro (`protecao_dia`, cancela a perda de HP no fechamento) ou a sequência de um hábito específico (`protecao_streak`, streak conta como cumprida mas sem XP/ouro). Renovação semanal (+1, até o teto de `getMaxShields`) é feita de forma preguiçosa em `ensureWeeklyShield` (`server/utils/shield.ts`) sempre que a linha do usuário é tocada — não tem cron, então essa é a alternativa até a fase de deploy real. Limite de 1 uso por semana mesmo com escudos guardados (unique index `shield_uses_user_week_unique`), pra não deixar o escudo virar um jeito de zerar uma semana inteira de recaída.
 - **Troca de classe** (docs seção 4.3): `POST /api/user/class` agora aceita trocar a classe já escolhida, não só a escolha inicial no nível 5 — custa 30% do XP atual e só libera de novo depois de 90 dias (`lastClassChangeAt`/`classChosenAt`). UI em `/perfil`.
 
+### Fase 8 — Hábito semanal flexível e pausa com datas
+- **Hábito `semanal`** ("N vezes por semana, qualquer dia"): novo campo `habits.weeklyTarget` (1-7). Check-in continua liberado em qualquer dia (`isHabitScheduled` já retornava `true` pra `semanal`) — a diferença é onde a meta é *avaliada*: um hábito semanal só entra na lista de elegíveis do fechamento de dia (`server/utils/dailyClosure.ts`) no domingo (`isWeekEndDate`, `shared/date.ts`), contra o total de check-ins da semana inteira (segunda a domingo, mesma janela de `weekStartStr`). Se bateu a meta, não é punido nem quebra a sequência (e conta pra "dia perfeito" daquele domingo); se não bateu, entra em `missed` exatamente como um hábito diário perdido — reaproveita toda a lógica de HP/streak/escudo/Segunda Voz já existente, sem precisar duplicar nada. Nos outros 6 dias da semana o hábito fica invisível pro fechamento (não pune, não conta perfeito). Dashboard (`index.vue`) exclui hábitos semanais do cálculo local de "dia perfeito" pelo mesmo motivo — eles têm seu próprio badge de progresso (`weeklyProgress`/`weeklyTarget`, computado em `habits/index.get.ts`) em vez de entrar na razão "X/Y hábitos de hoje".
+- **Pausar com data** (docs seção 6): `POST /api/habits/[id]` aceita `pausedUntil` opcional ao pausar (`pausedFrom` fica com a data de hoje automaticamente). Sem cron dedicado — `resumeExpiredPauses` (`server/utils/habits.ts`) roda de forma preguiçosa (mesmo padrão de `ensureWeeklyShield`) sempre que os hábitos do usuário são tocados (`habits/index.get.ts`, `checkin.post.ts`, início de `dailyClosure.ts`), retomando sozinho (`status` volta pra `ativo`) assim que a data passa. O congelamento em si (sem XP, sem HP, sem streak) já vinha de graça: `status = 'pausado'` já excluía o hábito do `where(habits.status = 'ativo')` usado em toda punição/check-in, então não precisou mudar nada nesse ponto.
+
 ## Decisões e limitações conhecidas (importante!)
 
 1. ~~SQLite, não Postgres.~~ **Resolvido** — schema migrado pra `pg-core`, client usa `@neondatabase/serverless` (driver `neon-serverless`/`Pool` via WebSocket, não o `neon-http`, porque várias rotas fazem transações interativas de verdade — leem, decidem em JS, e escrevem de novo dentro do mesmo `db.transaction()` — e o driver HTTP não suporta esse padrão). A migração não foi só trocar o dialeto: toda a API (~30 arquivos em `server/api/**`) usava a API síncrona do `better-sqlite3` (`.get()`/`.run()`/`.all()`, callbacks de `db.transaction()` não-async) e precisou virar assíncrona (`await`, `db.transaction(async (tx) => ...)`). Ver nota em [docs/02-modelagem-banco.md](docs/02-modelagem-banco.md).
@@ -86,8 +90,7 @@ Scripts úteis: `npm run db:studio` (abre o Drizzle Studio pra inspecionar o ban
 
 ## Regras documentadas mas com implementação parcial
 
-- **Hábitos semanais** — o modo `semanal` do enum `habitFrequency` (meta flexível "N vezes por semana, qualquer dia") ainda não foi implementado; hoje se comporta como diário. `dias_customizados` (dias fixos da semana, ex. só fim de semana) já funciona de ponta a ponta — ver `shared/habitSchedule.ts`.
-- **Pausar hábito com datas** — o schema tem `pausedFrom`/`pausedUntil`, mas a tela de Hábitos só alterna `ativo`/`pausado` na hora, sem escolher um período de férias.
+~~Hábitos semanais~~ e ~~pausar com datas~~ — resolvidos, ver Fase 8 em "O que já foi feito".
 
 ## O que falta fazer
 
@@ -97,7 +100,7 @@ Em ordem sugerida de prioridade:
 2. ~~Uso de escudo~~ e ~~troca de classe~~ — feito, ver Fase 7 em "O que já foi feito".
 3. ~~Postgres em produção~~ — feito, ver decisão #1 acima.
 4. ~~Cron real~~ para o fechamento diário — feito, ver decisão #3 acima.
-5. Modo `semanal` flexível e pausa com datas (itens acima — `dias_customizados` já está pronto).
+5. ~~Modo `semanal` flexível e pausa com datas~~ — feito, ver Fase 8 acima.
 6. ~~Deploy~~ — feito, app no ar no Vercel com Postgres (Neon) de produção. Ver "Deploy no Vercel" abaixo pra reproduzir/atualizar.
 7. **Testes automatizados** — tudo até agora foi validado manualmente via requisições HTTP durante o desenvolvimento; não há suíte de testes.
 

@@ -10,6 +10,7 @@ export function createHabit(input: {
   difficulty: HabitDifficulty
   frequency?: HabitFrequency
   customDays?: number[]
+  weeklyTarget?: number
 }) {
   return $fetch('/api/habits', { method: 'POST', body: input })
 }
@@ -25,6 +26,6 @@ export function undoCheckin(id: string) {
   return $fetch(`/api/habits/${id}/checkin`, { method: 'DELETE' })
 }
 
-export function setHabitStatus(id: string, status: HabitStatus) {
-  return $fetch(`/api/habits/${id}`, { method: 'PATCH', body: { status } })
+export function setHabitStatus(id: string, status: HabitStatus, pausedUntil?: string | null) {
+  return $fetch(`/api/habits/${id}`, { method: 'PATCH', body: { status, pausedUntil } })
 }

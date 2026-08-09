@@ -31,6 +31,15 @@ export default defineEventHandler(async (event) => {
     customDays = [...new Set(body.customDays)].sort((a, b) => a - b)
   }
 
+  let weeklyTarget: number | null = null
+  if (frequency === 'semanal') {
+    const parsed = typeof body.weeklyTarget === 'number' ? body.weeklyTarget : Number(body.weeklyTarget)
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 7) {
+      throw createError({ statusCode: 400, statusMessage: 'Meta semanal precisa ser um número entre 1 e 7.' })
+    }
+    weeklyTarget = parsed
+  }
+
   const [habit] = await db
     .insert(habits)
     .values({
@@ -40,6 +49,7 @@ export default defineEventHandler(async (event) => {
       difficulty: body.difficulty,
       frequency,
       customDays,
+      weeklyTarget,
     })
     .returning()
 

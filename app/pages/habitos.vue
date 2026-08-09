@@ -12,6 +12,7 @@ const { data: habits, refresh } = useHabits()
 
 const categories = Object.keys(categoryLabel) as HabitCategory[]
 const difficulties = Object.keys(difficultyLabel) as HabitDifficulty[]
+const weeklyTargetOptions = ['1', '2', '3', '4', '5', '6', '7']
 
 const showForm = ref(false)
 const newName = ref('')
@@ -19,6 +20,7 @@ const newCategory = ref<HabitCategory>('fisico')
 const newDifficulty = ref<HabitDifficulty>('facil')
 const newFrequency = ref<HabitFrequency>('diaria')
 const newCustomDays = ref<number[]>([])
+const newWeeklyTarget = ref('3')
 const creating = ref(false)
 const formError = ref('')
 
@@ -46,12 +48,14 @@ async function submitNewHabit() {
       difficulty: newDifficulty.value,
       frequency: newFrequency.value,
       customDays: newFrequency.value === 'dias_customizados' ? newCustomDays.value : undefined,
+      weeklyTarget: newFrequency.value === 'semanal' ? Number(newWeeklyTarget.value) : undefined,
     })
     newName.value = ''
     newCategory.value = 'fisico'
     newDifficulty.value = 'facil'
     newFrequency.value = 'diaria'
     newCustomDays.value = []
+    newWeeklyTarget.value = '3'
     showForm.value = false
     await refresh()
   } catch (err) {
@@ -61,9 +65,36 @@ async function submitNewHabit() {
   }
 }
 
-async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
-  await setHabitStatus(id, status === 'ativo' ? 'pausado' : 'ativo')
+async function resume(id: string) {
+  await setHabitStatus(id, 'ativo')
   await refresh()
+}
+
+// Pausar é um mini-fluxo próprio (docs seção 6, "férias com data"): o botão de pausa abre um
+// campo de data opcional em vez de pausar na hora, já que sem data o hábito fica parado até
+// alguém lembrar de retomar na mão.
+const pausingHabitId = ref<string | null>(null)
+const pauseUntilDraft = ref('')
+const pausing = ref(false)
+
+function startPausing(id: string) {
+  pausingHabitId.value = id
+  pauseUntilDraft.value = ''
+}
+
+function cancelPausing() {
+  pausingHabitId.value = null
+}
+
+async function confirmPause(id: string) {
+  pausing.value = true
+  try {
+    await setHabitStatus(id, 'pausado', pauseUntilDraft.value || null)
+    pausingHabitId.value = null
+    await refresh()
+  } finally {
+    pausing.value = false
+  }
 }
 </script>
 
@@ -119,6 +150,14 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           >
             Dias específicos
           </button>
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            :class="newFrequency === 'semanal' ? 'bg-primary text-primary-foreground' : 'glass-inset text-muted-foreground'"
+            @click="newFrequency = 'semanal'"
+          >
+            N vezes por semana
+          </button>
         </div>
         <div v-if="newFrequency === 'dias_customizados'" class="flex flex-wrap gap-1.5 sm:col-span-3">
           <button
@@ -131,6 +170,17 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           >
             {{ label }}
           </button>
+        </div>
+        <div v-if="newFrequency === 'semanal'" class="flex items-center gap-2 sm:col-span-3">
+          <span class="text-sm text-muted-foreground">Quantas vezes por semana?</span>
+          <Select v-model="newWeeklyTarget">
+            <SelectTrigger class="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="n in weeklyTargetOptions" :key="n" :value="n">{{ n }}×</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Button :disabled="creating" class="sm:col-span-3" @click="submitNewHabit">{{ creating ? 'Criando…' : 'Criar hábito' }}</Button>
@@ -151,9 +201,24 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
             <Badge :variant="habit.category">{{ categoryLabel[habit.category] }}</Badge>
             <Badge variant="secondary">{{ difficultyLabel[habit.difficulty] }} · {{ DIFFICULTY_XP[habit.difficulty] }} XP</Badge>
             <Badge v-if="habit.frequency === 'dias_customizados'" variant="secondary">{{ customDaysLabel(habit.customDays) }}</Badge>
+            <Badge v-if="habit.frequency === 'semanal'" variant="secondary">
+              {{ habit.weeklyProgress ?? 0 }}/{{ habit.weeklyTarget }}× essa semana
+            </Badge>
+            <Badge v-if="habit.status === 'pausado' && habit.pausedUntil" variant="secondary">
+              Volta em {{ habit.pausedUntil.split('-').reverse().join('/') }}
+            </Badge>
             <Badge v-if="habit.dominatedAt" variant="warning" class="inline-flex items-center gap-1">
               <Crown :size="10" /> Dominado
             </Badge>
+          </div>
+
+          <div v-if="pausingHabitId === habit.id" class="mt-3 flex flex-wrap items-center gap-2">
+            <Input v-model="pauseUntilDraft" type="date" class="h-8 w-40 py-1" />
+            <span class="text-xs text-muted-foreground">(opcional — vazio pausa indefinidamente)</span>
+            <Button size="sm" class="h-8 rounded-full" :disabled="pausing" @click="confirmPause(habit.id)">
+              {{ pausing ? 'Pausando…' : 'Confirmar pausa' }}
+            </Button>
+            <Button size="sm" variant="ghost" class="h-8 rounded-full" :disabled="pausing" @click="cancelPausing">Cancelar</Button>
           </div>
         </div>
 
@@ -164,9 +229,18 @@ async function toggleStatus(id: string, status: 'ativo' | 'pausado') {
           <Trophy :size="16" /> {{ habit.longestStreak }}
         </div>
 
-        <Button variant="ghost" size="icon" class="rounded-full" @click="toggleStatus(habit.id, habit.status as 'ativo' | 'pausado')">
-          <Pause v-if="habit.status === 'ativo'" :size="16" />
-          <Play v-else :size="16" />
+        <Button
+          v-if="habit.status === 'ativo'"
+          variant="ghost"
+          size="icon"
+          class="rounded-full"
+          title="Pausar"
+          @click="startPausing(habit.id)"
+        >
+          <Pause :size="16" />
+        </Button>
+        <Button v-else variant="ghost" size="icon" class="rounded-full" title="Retomar" @click="resume(habit.id)">
+          <Play :size="16" />
         </Button>
       </div>
 

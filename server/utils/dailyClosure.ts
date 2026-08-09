@@ -1,6 +1,7 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, lte } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { checkIns, dailyClosures, goldEvents, habits, hpEvents, shieldUses, users, xpEvents } from '~~/db/schema'
+import { isWeekEndDate, weekStartStr } from '#shared/date'
 import {
   DIFFICULTY_XP,
   HP_MAX,
@@ -35,6 +36,7 @@ export async function closeDayForUser(userId: string, closureDate: string) {
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
     const skills = await getUnlockedSkillIds(tx, userId)
+    await resumeExpiredPauses(tx, userId)
 
     if (user.restDayDate === closureDate) {
       const gracaEstalagem = hasSkill(skills, 'paladino_graca_estalagem')
@@ -65,13 +67,14 @@ export async function closeDayForUser(userId: string, closureDate: string) {
     }
 
     const activeHabits = await tx.select().from(habits).where(and(eq(habits.userId, userId), eq(habits.status, 'ativo')))
-    // Only habits that already existed on the closure date, and were actually scheduled for that
-    // weekday (dias_customizados), can be "missed" that day.
-    const eligibleHabits = activeHabits.filter(
-      (h) => h.createdAt.slice(0, 10) <= closureDate && isHabitScheduled(h.frequency, h.customDays, closureDate),
-    )
+    const existedByClosureDate = (h: (typeof activeHabits)[number]) => h.createdAt.slice(0, 10) <= closureDate
 
-    const checkedHabitIds = new Set(
+    // Diário / dias_customizados: avaliado todo dia, como sempre — só habits agendados pra esse
+    // dia da semana (dias_customizados) podem ser "perdidos" hoje.
+    const dailyHabits = activeHabits.filter(
+      (h) => h.frequency !== 'semanal' && existedByClosureDate(h) && isHabitScheduled(h.frequency, h.customDays, closureDate),
+    )
+    const checkedTodayIds = new Set(
       (
         await tx
           .select()
@@ -79,7 +82,31 @@ export async function closeDayForUser(userId: string, closureDate: string) {
           .where(and(eq(checkIns.userId, userId), eq(checkIns.checkinDate, closureDate)))
       ).map((c) => c.habitId),
     )
-    const missed = eligibleHabits.filter((h) => !checkedHabitIds.has(h.id))
+    const dailyMissed = dailyHabits.filter((h) => !checkedTodayIds.has(h.id))
+
+    // Semanal ("N vezes por semana, qualquer dia"): não faz sentido punir por não ter feito HOJE
+    // especificamente — só é avaliado no fim da semana (domingo), contra o total de check-ins da
+    // semana inteira (segunda a domingo, mesma janela de weekStartStr).
+    let weeklyHabits: typeof activeHabits = []
+    let weeklyMissed: typeof activeHabits = []
+    if (isWeekEndDate(closureDate)) {
+      const weeklyCandidates = activeHabits.filter((h) => h.frequency === 'semanal' && existedByClosureDate(h))
+      if (weeklyCandidates.length > 0) {
+        const weekStart = weekStartStr(closureDate)
+        const weekCheckIns = await tx
+          .select()
+          .from(checkIns)
+          .where(and(eq(checkIns.userId, userId), gte(checkIns.checkinDate, weekStart), lte(checkIns.checkinDate, closureDate)))
+        const weeklyCountByHabit = new Map<string, number>()
+        for (const c of weekCheckIns) weeklyCountByHabit.set(c.habitId, (weeklyCountByHabit.get(c.habitId) ?? 0) + 1)
+
+        weeklyHabits = weeklyCandidates
+        weeklyMissed = weeklyCandidates.filter((h) => (weeklyCountByHabit.get(h.id) ?? 0) < (h.weeklyTarget ?? 1))
+      }
+    }
+
+    const eligibleHabits = [...dailyHabits, ...weeklyHabits]
+    const missed = [...dailyMissed, ...weeklyMissed]
     const perfectDay = eligibleHabits.length > 0 && missed.length === 0
 
     // Escudo (docs 5.2): reservado via POST /api/user/shield, aplicado aqui no fechamento do dia

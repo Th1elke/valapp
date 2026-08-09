@@ -46,7 +46,12 @@ export interface HabitDTO {
   difficulty: HabitDifficulty
   frequency: HabitFrequency
   customDays: number[] | null
+  /** Only set when frequency === 'semanal' — quantas vezes por semana é a meta. */
+  weeklyTarget: number | null
+  /** Only set when frequency === 'semanal' — quantos check-ins já feitos na semana corrente (Mon–Sun). */
+  weeklyProgress: number | null
   status: HabitStatus
+  pausedUntil: string | null
   streakCount: number
   longestStreak: number
   lastBrokenStreak: number | null
