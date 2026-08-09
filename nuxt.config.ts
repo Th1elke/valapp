@@ -6,6 +6,12 @@ export default defineNuxtConfig({
   components: [
     { path: '~/components', pathPrefix: false, extensions: ['.vue'] },
   ],
+  app: {
+    head: {
+      title: 'Val',
+      titleTemplate: 'Val',
+    },
+  },
   css: ['~/assets/css/tailwind.css'],
   tailwindcss: {
     cssPath: '~/assets/css/tailwind.css',
