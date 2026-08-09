@@ -217,7 +217,7 @@ xp_grimorio = round(150 × (acertos / 3))
 150 XP no acerto total é ~4× um check-in difícil comum — de propósito, pra recompensar estudo ativo muito mais que um check-in passivo, como pedido.
 
 ### 12.3 Atributo afetado
-Todo XP do Grimório conta **inteiramente para Inteligência (INT)**, não importa o conteúdo estudado — é sempre conhecimento. Isso soma no mesmo cálculo da seção 9 (via `xp_events` tipo `grimorio`, sem precisar de um hábito "Mente" existente).
+Todo XP do Grimório conta pra Inteligência (INT), não importa o conteúdo estudado — é sempre conhecimento. Isso soma no mesmo cálculo da seção 9 (via `xp_events` tipo `grimorio`, sem precisar de um hábito "Mente" existente). Pro nível/XP do jogador (curva da seção 3), o valor cheio conta; mas só **50%** (`GRIMOIRE_ATTRIBUTE_SHARE`) desse XP soma no atributo INT em si — em pouquíssimas batalhas o valor cheio dominava o radar de atributos muito mais rápido que o ritmo de check-ins de hábito consegue em qualquer outra categoria, o que descaracterizava o radar como "estilo de jogo na vida real" (o objetivo original da seção 9).
 
 ### 12.4 O que o Grimório NÃO afeta
 Não dá ouro, não conta pra streak de hábito nenhum, não conta pra "dia perfeito" (seção 2.2) e não pode, sozinho, causar recaída (o dano por erro é pequeno demais pra isso sozinho — só contribui se o HP já estiver baixo por hábitos perdidos).

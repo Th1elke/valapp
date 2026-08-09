@@ -29,6 +29,15 @@ export const GRIMOIRE_MIN_LENGTH = 100
 export const GRIMOIRE_MAX_LENGTH = 12000
 export const GRIMOIRE_MAX_LENGTH_BOOSTED = 30000
 
+/**
+ * Grimório XP counts 100% toward level/HP-loss math (docs 12.2) — deliberately ~4x a hard
+ * check-in, to reward active study. But crediting that full amount to Inteligência too made the
+ * radar de atributos (`user/stats.get.ts`) spike wildly after just one or two battles compared to
+ * the slow grind of habit check-ins, so only a fraction of it counts toward the INT stat
+ * specifically. Doesn't touch level/XP totals, only the attribute radar.
+ */
+export const GRIMOIRE_ATTRIBUTE_SHARE = 0.5
+
 /** XP for a finished Grimório battle, proportional to accuracy (docs section 12.2). */
 export function grimoireXpReward(correctCount: number): number {
   return Math.round((GRIMOIRE_BOSS_XP * correctCount) / GRIMOIRE_QUIZ_LENGTH)

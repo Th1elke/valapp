@@ -100,7 +100,7 @@ Autenticação real via `nuxt-auth-utils` — toda rota resolve o usuário logad
 ## Atributos (Radar)
 
 - `GET /api/user/stats` (`server/api/user/stats.get.ts`) soma o XP de `checkIns` agrupado por categoria do hábito (`habits.category` → `fisico`/`mente`/`disciplina`/`social`/`criatividade`, mapeados pra STR/INT/WIS/CHA/DEX em `shared/types.ts`).
-- XP do Grimório conta 100% pra Inteligência (Mente), somado à parte via `xpEvents` do tipo `grimorio`.
+- XP do Grimório soma pra Inteligência (Mente) via `xpEvents` do tipo `grimorio`, mas só 50% do valor (`GRIMOIRE_ATTRIBUTE_SHARE` em `shared/gamification.ts`) — o valor cheio conta pro XP/nível normalmente, só o reflexo no atributo é reduzido, porque em pouquíssimas batalhas ele dominava o radar muito mais rápido que qualquer categoria alimentada por check-in de hábito.
 - Renderizado em `app/components/AttributeRadar.vue` — SVG feito à mão, cor sempre `hsl(var(--primary))` (por isso já acompanha o tema equipado automaticamente).
 
 ## Grimório (IA + Batalha)
