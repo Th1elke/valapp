@@ -16,7 +16,7 @@ const nav = [
 </script>
 
 <template>
-  <aside class="sticky top-0 flex h-screen w-20 shrink-0 flex-col items-center gap-2 border-r border-white/10 bg-card/90 py-6 shadow-[8px_0_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+  <aside class="sticky top-0 hidden h-screen w-20 shrink-0 flex-col items-center gap-2 border-r border-white/10 bg-card/90 py-6 shadow-[8px_0_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:flex">
     <NuxtLink to="/perfil" title="Perfil" class="mb-4">
       <ClassAvatar
         :player-class="user?.playerClass ?? null"
@@ -41,4 +41,21 @@ const nav = [
       <component :is="item.icon" :size="20" />
     </NuxtLink>
   </aside>
+
+  <nav class="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/10 bg-card/95 py-2 shadow-[0_-8px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:hidden">
+    <NuxtLink
+      v-for="item in nav"
+      :key="item.to"
+      :to="item.to"
+      :title="item.label"
+      class="flex h-11 w-11 items-center justify-center rounded-2xl transition-colors"
+      :class="
+        route.path === item.to
+          ? 'bg-white/10 text-white'
+          : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+      "
+    >
+      <component :is="item.icon" :size="20" />
+    </NuxtLink>
+  </nav>
 </template>

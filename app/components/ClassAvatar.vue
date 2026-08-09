@@ -21,7 +21,7 @@ const info = computed(() => getClassInfo(props.playerClass, props.level))
 const classIcons = { guerreiro: Sword, mago: Wand2, paladino: Shield, arqueiro: Target, ladino: VenetianMask, bardo: Music2 }
 const icon = computed(() => (info.value.base ? classIcons[info.value.base] : User))
 
-const avatarSizeClass = computed(() => ({ sm: 'h-10 w-10', md: 'h-16 w-16', lg: 'h-28 w-28' })[props.size])
+const avatarSizeClass = computed(() => ({ sm: 'h-10 w-10', md: 'h-16 w-16', lg: 'h-20 w-20 sm:h-28 sm:w-28' })[props.size])
 const iconPx = computed(() => ({ sm: 18, md: 28, lg: 48 })[props.size])
 
 const border = computed(() => (props.borderId && BORDER_STYLES[props.borderId]) || null)

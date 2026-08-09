@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 definePageMeta({ layout: 'auth' })
 
 const { fetch: refreshSession } = useUserSession()
+const { refresh: refreshUser } = useUserState()
 
 const email = ref('')
 const password = ref('')
@@ -17,6 +18,7 @@ async function submit() {
   try {
     await $fetch('/api/auth/login', { method: 'POST', body: { email: email.value, password: password.value } })
     await refreshSession()
+    await refreshUser()
     await navigateTo('/')
   } catch (err) {
     error.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível entrar.'

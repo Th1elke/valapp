@@ -4,7 +4,7 @@
 
     <div class="relative z-10 flex min-h-screen">
       <AppSidebar />
-      <main class="min-w-0 flex-1 p-6">
+      <main class="min-w-0 flex-1 p-4 pb-24 sm:p-6 sm:pb-6">
         <div class="mx-auto max-w-[1600px]">
           <AppHeader />
           <slot />

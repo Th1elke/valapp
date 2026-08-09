@@ -187,8 +187,8 @@ const milestones = computed(() => [
 
 <template>
   <div v-if="user" class="space-y-6">
-    <div class="hero-panel overflow-hidden">
-      <div class="group relative h-40">
+    <div class="hero-panel overflow-hidden pb-3 sm:pb-0">
+      <div class="group relative h-28 sm:h-40">
         <img
           v-if="user.coverUrl"
           :src="user.coverUrl"
@@ -213,7 +213,7 @@ const milestones = computed(() => [
         </button>
         <input ref="coverInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" @change="onCoverSelected" />
 
-        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-4 p-6">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-3 p-3 sm:gap-4 sm:p-6">
           <div class="group/avatar pointer-events-auto relative z-10 shrink-0">
             <ClassAvatar
               :player-class="user.playerClass"
@@ -236,10 +236,10 @@ const milestones = computed(() => [
           </div>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-2xl font-semibold text-white drop-shadow-md">{{ user.name }}</h1>
+              <h1 class="truncate text-lg font-semibold text-white drop-shadow-md sm:text-2xl">{{ user.name }}</h1>
               <Badge>{{ classInfo?.label }}</Badge>
             </div>
-            <p v-if="equippedTitleName" class="text-sm font-medium text-amber-300 drop-shadow-md">{{ equippedTitleName }}</p>
+            <p v-if="equippedTitleName" class="truncate text-xs font-medium text-amber-300 drop-shadow-md sm:text-sm">{{ equippedTitleName }}</p>
           </div>
         </div>
         <div class="pointer-events-none absolute inset-y-0 right-6 hidden w-52 items-center sm:flex">
@@ -250,8 +250,13 @@ const milestones = computed(() => [
           </div>
         </div>
       </div>
-      <p v-if="coverError" class="px-6 pt-2 text-xs text-red-400">{{ coverError }}</p>
-      <p v-if="avatarError" class="px-6 pt-2 text-xs text-red-400">{{ avatarError }}</p>
+      <div class="px-4 pt-3 sm:hidden">
+        <p class="text-sm text-muted-foreground">Nível {{ user.level }} · {{ user.xp }} XP total</p>
+        <Progress :model-value="xpIntoLevel" :max="xpNeeded" class="mt-2 glow-primary" />
+        <p class="mt-1 text-xs text-muted-foreground">{{ xpIntoLevel }} / {{ xpNeeded }} XP para o nível {{ user.level + 1 }}</p>
+      </div>
+      <p v-if="coverError" class="px-4 pt-2 text-xs text-red-400 sm:px-6">{{ coverError }}</p>
+      <p v-if="avatarError" class="px-4 pt-2 text-xs text-red-400 sm:px-6">{{ avatarError }}</p>
     </div>
 
     <div v-if="canChooseClass" class="glass-panel space-y-4 p-5">

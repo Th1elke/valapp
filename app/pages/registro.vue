@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 definePageMeta({ layout: 'auth' })
 
 const { fetch: refreshSession } = useUserSession()
+const { refresh: refreshUser } = useUserState()
 
 const name = ref('')
 const email = ref('')
@@ -24,6 +25,7 @@ async function submit() {
   try {
     await $fetch('/api/auth/register', { method: 'POST', body: { name: name.value, email: email.value, password: password.value } })
     await refreshSession()
+    await refreshUser()
     await navigateTo('/')
   } catch (err) {
     error.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível criar a conta.'
