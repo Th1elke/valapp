@@ -12,14 +12,14 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
   const skill = typeof skillId === 'string' ? getSkill(skillId) : undefined
   if (!skill) throw createError({ statusCode: 400, statusMessage: 'Habilidade inválida.' })
 
-  return db.transaction((tx): UserStateDTO => {
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+  return db.transaction(async (tx): Promise<UserStateDTO> => {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
     if (user.playerClass !== skill.playerClass) {
       throw createError({ statusCode: 400, statusMessage: 'Essa habilidade não é da sua classe.' })
     }
 
-    const owned = getUnlockedSkillIds(tx, userId)
+    const owned = await getUnlockedSkillIds(tx, userId)
     if (owned.includes(skill.id)) throw createError({ statusCode: 400, statusMessage: 'Você já tem essa habilidade.' })
 
     const prerequisite = getPrerequisiteSkillId(skill)
@@ -30,9 +30,9 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
     const availableSP = getAvailableSP(user.level, owned.length)
     if (availableSP < skill.cost) throw createError({ statusCode: 400, statusMessage: 'Pontos de habilidade insuficientes.' })
 
-    tx.insert(userSkills).values({ userId, skillId: skill.id }).run()
+    await tx.insert(userSkills).values({ userId, skillId: skill.id })
 
-    const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
-    return toUserStateDTO(updated, tx)
+    const [updated] = await tx.select().from(users).where(eq(users.id, userId))
+    return toUserStateDTO(updated!, tx)
   })
 })

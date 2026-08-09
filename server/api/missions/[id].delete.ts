@@ -7,12 +7,11 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'id é obrigatório.' })
 
-  const updated = db
+  const [updated] = await db
     .update(missions)
     .set({ status: 'cancelada' })
     .where(and(eq(missions.id, id), eq(missions.userId, userId)))
     .returning()
-    .get()
 
   if (!updated) throw createError({ statusCode: 404, statusMessage: 'Missão não encontrada.' })
   return { ok: true }

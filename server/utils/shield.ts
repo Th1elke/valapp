@@ -11,11 +11,15 @@ type Writable = Pick<typeof db, 'select' | 'update'>
  * runs lazily whenever the user's row is touched — idempotent, since it only writes when the
  * stored `shieldWeekStart` isn't the current week yet.
  */
-export function ensureWeeklyShield(tx: Writable, user: typeof users.$inferSelect, skills: readonly string[]): typeof users.$inferSelect {
+export async function ensureWeeklyShield(
+  tx: Writable,
+  user: typeof users.$inferSelect,
+  skills: readonly string[],
+): Promise<typeof users.$inferSelect> {
   const currentWeekStart = weekStartStr()
   if (user.shieldWeekStart === currentWeekStart) return user
 
-  return tx
+  const [updated] = await tx
     .update(users)
     .set({
       shieldsRemaining: Math.min(getMaxShields(skills), user.shieldsRemaining + 1),
@@ -24,5 +28,5 @@ export function ensureWeeklyShield(tx: Writable, user: typeof users.$inferSelect
     })
     .where(eq(users.id, user.id))
     .returning()
-    .get()!
+  return updated!
 }

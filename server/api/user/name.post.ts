@@ -14,12 +14,11 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
     throw createError({ statusCode: 400, statusMessage: `Nome muito longo (máximo ${MAX_NAME_LENGTH} caracteres).` })
   }
 
-  const updated = db
+  const [updated] = await db
     .update(users)
     .set({ name, updatedAt: new Date().toISOString() })
     .where(eq(users.id, userId))
     .returning()
-    .get()
   if (!updated) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
   return toUserStateDTO(updated)

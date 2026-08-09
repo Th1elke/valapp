@@ -20,11 +20,10 @@ export default defineEventHandler(async (event) => {
   const invalidCredentials = () => createError({ statusCode: 401, statusMessage: 'E-mail ou senha inválidos.' })
   if (!email || !password) throw invalidCredentials()
 
-  const user = db
+  const [user] = await db
     .select({ id: users.id, email: users.email, name: users.name, passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.email, email))
-    .get()
 
   // Always run verifyPassword, even for an unknown e-mail, so response time can't be used to
   // enumerate which e-mails are registered.

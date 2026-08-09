@@ -27,33 +27,32 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const closureDate: string = body?.date ?? yesterdayStr()
 
-  return db.transaction((tx) => {
-    const alreadyProcessed = tx
+  return db.transaction(async (tx) => {
+    const [alreadyProcessed] = await tx
       .select()
       .from(dailyClosures)
       .where(and(eq(dailyClosures.userId, userId), eq(dailyClosures.closureDate, closureDate)))
-      .get()
     if (alreadyProcessed) return alreadyProcessed
 
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
-    const skills = getUnlockedSkillIds(tx, userId)
+    const skills = await getUnlockedSkillIds(tx, userId)
 
     if (user.restDayDate === closureDate) {
       const gracaEstalagem = hasSkill(skills, 'paladino_graca_estalagem')
       const ultimaCancao = hasSkill(skills, 'bardo_ultima_cancao')
       const restHeal = gracaEstalagem ? 25 : ultimaCancao ? 15 : 0
       const hp = restHeal ? Math.min(HP_MAX, user.hp + restHeal) : user.hp
-      tx.update(users)
+      await tx
+        .update(users)
         .set({ restDayDate: null, hp, updatedAt: new Date().toISOString() })
         .where(eq(users.id, userId))
-        .run()
       if (restHeal && hp !== user.hp) {
-        tx.insert(hpEvents).values({ userId, type: 'regen_dia_perfeito', amount: hp - user.hp, hpAfter: hp }).run()
+        await tx.insert(hpEvents).values({ userId, type: 'regen_dia_perfeito', amount: hp - user.hp, hpAfter: hp })
       }
 
-      return tx
+      const [closure] = await tx
         .insert(dailyClosures)
         .values({
           userId,
@@ -65,29 +64,34 @@ export default defineEventHandler(async (event) => {
           goldChange: 0,
         })
         .returning()
-        .get()
+      return closure
     }
 
-    const activeHabits = tx.select().from(habits).where(and(eq(habits.userId, userId), eq(habits.status, 'ativo'))).all()
+    const activeHabits = await tx.select().from(habits).where(and(eq(habits.userId, userId), eq(habits.status, 'ativo')))
     // Only habits that already existed on the closure date, and were actually scheduled for that
     // weekday (dias_customizados), can be "missed" that day.
     const eligibleHabits = activeHabits.filter(
       (h) => h.createdAt.slice(0, 10) <= closureDate && isHabitScheduled(h.frequency, h.customDays, closureDate),
     )
 
-    const missed = eligibleHabits.filter(
-      (h) => !tx.select().from(checkIns).where(and(eq(checkIns.habitId, h.id), eq(checkIns.checkinDate, closureDate))).get(),
+    const checkedHabitIds = new Set(
+      (
+        await tx
+          .select()
+          .from(checkIns)
+          .where(and(eq(checkIns.userId, userId), eq(checkIns.checkinDate, closureDate)))
+      ).map((c) => c.habitId),
     )
+    const missed = eligibleHabits.filter((h) => !checkedHabitIds.has(h.id))
     const perfectDay = eligibleHabits.length > 0 && missed.length === 0
 
     // Escudo (docs 5.2): reservado via POST /api/user/shield, aplicado aqui no fechamento do dia
     // que ele protege. `protecao_dia` cancela a perda de HP do dia inteiro; `protecao_streak`
     // preserva a sequência de um hábito específico (conta como cumprido, mas sem XP/ouro).
-    const shieldUse = tx
+    const [shieldUse] = await tx
       .select()
       .from(shieldUses)
       .where(and(eq(shieldUses.userId, userId), eq(shieldUses.protectedDate, closureDate)))
-      .get()
     const dayShielded = shieldUse?.targetType === 'protecao_dia'
     const protectedHabitId = shieldUse?.targetType === 'protecao_streak' ? shieldUse.habitId : null
     const preservedHabit = protectedHabitId ? missed.find((h) => h.id === protectedHabitId) : undefined
@@ -99,7 +103,8 @@ export default defineEventHandler(async (event) => {
       const segundaVoz =
         user.playerClass === 'bardo' && user.level >= 5 && (habit.category === 'social' || hasSkill(skills, 'bardo_refrao'))
       const newStreakCount = segundaVoz ? Math.floor(habit.streakCount / 2) : 0
-      tx.update(habits)
+      await tx
+        .update(habits)
         .set({
           streakCount: newStreakCount,
           dominatedAt: null,
@@ -108,7 +113,6 @@ export default defineEventHandler(async (event) => {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(habits.id, habit.id))
-        .run()
     }
 
     // Baluarte (Paladino): quando o escudo protege um hábito, credita o XP base dele — igual ao
@@ -116,14 +120,14 @@ export default defineEventHandler(async (event) => {
     let baluarteXp = 0
     if (preservedHabit) {
       const newStreakCount = preservedHabit.streakCount + 1
-      tx.update(habits)
+      await tx
+        .update(habits)
         .set({
           streakCount: newStreakCount,
           longestStreak: Math.max(preservedHabit.longestStreak, newStreakCount),
           updatedAt: new Date().toISOString(),
         })
         .where(eq(habits.id, preservedHabit.id))
-        .run()
 
       if (hasSkill(skills, 'paladino_baluarte')) {
         baluarteXp = DIFFICULTY_XP[preservedHabit.difficulty]
@@ -157,35 +161,32 @@ export default defineEventHandler(async (event) => {
       relapsed = true
       const relapseXp = computeRelapseXp(xp)
       const relapseLevel = levelForXp(relapseXp)
-      tx.insert(xpEvents)
-        .values({ userId, type: 'penalidade_recaida', amount: relapseXp - xp, balanceAfter: relapseXp })
-        .run()
+      await tx.insert(xpEvents).values({ userId, type: 'penalidade_recaida', amount: relapseXp - xp, balanceAfter: relapseXp })
       xp = relapseXp
       level = relapseLevel
       hp = getRelapseHpRestore(skills)
-      tx.insert(hpEvents).values({ userId, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp }).run()
+      await tx.insert(hpEvents).values({ userId, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp })
     } else {
       const hpEventType = perfectDay
         ? 'regen_dia_perfeito'
         : dayShielded && totalHpLossFromHabits > 0
           ? 'escudo_usado'
           : 'habito_nao_cumprido'
-      tx.insert(hpEvents)
-        .values({ userId, type: hpEventType, amount: hp - user.hp, hpAfter: hp })
-        .run()
+      await tx.insert(hpEvents).values({ userId, type: hpEventType, amount: hp - user.hp, hpAfter: hp })
     }
 
     if (perfectDay) {
-      tx.insert(xpEvents).values({ userId, type: 'dia_perfeito', amount: perfectXpBonus, balanceAfter: xp }).run()
-      tx.insert(goldEvents).values({ userId, type: 'dia_perfeito', amount: perfectGoldBonus, balanceAfter: gold }).run()
+      await tx.insert(xpEvents).values({ userId, type: 'dia_perfeito', amount: perfectXpBonus, balanceAfter: xp })
+      await tx.insert(goldEvents).values({ userId, type: 'dia_perfeito', amount: perfectGoldBonus, balanceAfter: gold })
     }
     if (baluarteXp > 0) {
-      tx.insert(xpEvents)
+      await tx
+        .insert(xpEvents)
         .values({ userId, habitId: preservedHabit!.id, type: 'baluarte', amount: baluarteXp, balanceAfter: xp })
-        .run()
     }
 
-    tx.update(users)
+    await tx
+      .update(users)
       .set({
         xp,
         level,
@@ -195,9 +196,8 @@ export default defineEventHandler(async (event) => {
         updatedAt: new Date().toISOString(),
       })
       .where(eq(users.id, userId))
-      .run()
 
-    const closure = tx
+    const [closure] = await tx
       .insert(dailyClosures)
       .values({
         userId,
@@ -209,7 +209,6 @@ export default defineEventHandler(async (event) => {
         goldChange: gold - user.gold,
       })
       .returning()
-      .get()
 
     return closure
   })

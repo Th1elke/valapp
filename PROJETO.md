@@ -7,7 +7,7 @@ Este arquivo é o ponto de partida pra continuar o projeto em outra máquina —
 ## Stack
 
 - **Nuxt 4** (Vue 3, `app/` como srcDir) + **Tailwind CSS** + **shadcn-vue** (componentes montados na mão em `app/components/ui/`, não via CLI — ver nota abaixo)
-- **Drizzle ORM** sobre **SQLite** (`better-sqlite3`) — temporário, ver seção de decisões
+- **Drizzle ORM** sobre **Postgres** (`@neondatabase/serverless`, driver `neon-serverless`/`Pool` via WebSocket — suporta transações interativas de verdade, ao contrário do driver `neon-http`) — ver decisão #1
 - **Gemini API** (`@google/genai`, modelo `gemini-3.5-flash`) pro Grimório
 - Fonte: **General Sans** (via `@nuxt/fonts`, provider Fontshare — gratuita para uso comercial)
 
@@ -19,12 +19,12 @@ copy .env.example .env        # ou cp no Linux/Mac
 ```
 
 Edita o `.env` gerado:
-- `DATABASE_URL="file:./db/local.db"` já vem certo, não precisa mudar.
+- `DATABASE_URL` — string de conexão Postgres (`postgresql://user:senha@host/db?sslmode=require`). Pra dev local, o mais rápido é criar um banco grátis no [Neon](https://neon.tech) ou no [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) (mesma coisa, é Neon por baixo) e colar a connection string aqui.
 - `GEMINI_API_KEY=""` — pega uma chave grátis em https://aistudio.google.com/apikey (sem cartão) e cola aqui. Sem isso o Grimório não funciona (o resto do app funciona normalmente).
 - `NUXT_SESSION_PASSWORD` — string de 32+ caracteres pra selar o cookie de sessão; o `nuxt-auth-utils` gera uma sozinho em dev se faltar, mas em produção é obrigatório definir.
 
 ```bash
-npm run db:migrate   # aplica as migrations em db/migrations/ no SQLite local
+npm run db:migrate   # aplica as migrations em db/migrations/ no Postgres apontado por DATABASE_URL
 npm run db:seed      # cria a linha inicial que a primeira conta vai "herdar" no cadastro
 npm run dev           # sobe em http://localhost:3000 (ou 3001 se a 3000 estiver ocupada)
 ```
@@ -76,7 +76,7 @@ Scripts úteis: `npm run db:studio` (abre o Drizzle Studio pra inspecionar o ban
 
 ## Decisões e limitações conhecidas (importante!)
 
-1. **SQLite, não Postgres.** O plano original era Postgres + Drizzle, mas a máquina de desenvolvimento não tinha Docker nem Postgres instalado. O schema (`db/schema.ts`) é logicamente idêntico, só usa `sqlite-core` em vez de `pg-core`. Migrar pra Postgres depois é trocar o dialeto no schema, em `db/client.ts` e em `drizzle.config.ts` — ver nota no topo de [docs/02-modelagem-banco.md](docs/02-modelagem-banco.md).
+1. ~~SQLite, não Postgres.~~ **Resolvido** — schema migrado pra `pg-core`, client usa `@neondatabase/serverless` (driver `neon-serverless`/`Pool` via WebSocket, não o `neon-http`, porque várias rotas fazem transações interativas de verdade — leem, decidem em JS, e escrevem de novo dentro do mesmo `db.transaction()` — e o driver HTTP não suporta esse padrão). A migração não foi só trocar o dialeto: toda a API (~30 arquivos em `server/api/**`) usava a API síncrona do `better-sqlite3` (`.get()`/`.run()`/`.all()`, callbacks de `db.transaction()` não-async) e precisou virar assíncrona (`await`, `db.transaction(async (tx) => ...)`). Ver nota em [docs/02-modelagem-banco.md](docs/02-modelagem-banco.md).
 2. ~~Sem autenticação.~~ **Resolvido** — cadastro/login reais via `nuxt-auth-utils` (sessão selada em cookie, hashing de senha embutido). Cada rota resolve o usuário logado via `requireUserId()` (`server/utils/auth.ts`); `DEMO_USER_ID` (`shared/constants.ts`) só sobrevive como sentinel do `db/seed.ts` pra primeira conta herdar os dados. Ver seção "Autenticação" em [GAMEPLAY.md](GAMEPLAY.md) pra detalhes.
 3. **Sem job agendado real.** O fechamento de dia (`POST /api/daily-closure`) que aplica punição de HP / bônus de dia perfeito é disparado **manualmente** pelo botão "Fechar dia de ontem" no dashboard, não roda sozinho à meia-noite. Em produção isso precisa virar um cron real.
 4. **shadcn-vue sem CLI.** O CLI `shadcn-vue add` trava neste ambiente (terminal sem TTY). Os componentes em `app/components/ui/` foram escritos na mão seguindo o padrão exato do registry oficial. Pra adicionar um novo componente, tenta `npx shadcn-vue@latest add <nome>` num terminal interativo normal primeiro; se travar, monta na mão copiando o padrão dos que já existem.
@@ -94,11 +94,29 @@ Em ordem sugerida de prioridade:
 
 1. ~~Autenticação real~~ — feito, ver "O que já foi feito" e a decisão #2 acima.
 2. ~~Uso de escudo~~ e ~~troca de classe~~ — feito, ver Fase 7 em "O que já foi feito".
-3. **Postgres em produção** — trocar o dialeto quando houver Docker/serviço disponível (ver decisão #1 acima).
-4. **Cron real** para o fechamento diário (hoje é o botão manual).
+3. ~~Postgres em produção~~ — feito, ver decisão #1 acima.
+4. **Cron real** para o fechamento diário — decisão consciente de deixar como está (botão manual) pro deploy inicial de portfólio; ver seção "Limitações conhecidas em produção" abaixo.
 5. Modo `semanal` flexível e pausa com datas (itens acima — `dias_customizados` já está pronto).
-6. **Deploy** (nenhum ambiente de produção configurado ainda).
+6. **Deploy** — schema/client/config migrados pra Postgres e prontos; falta provisionar o banco de produção e rodar o deploy no Vercel (ver "Deploy no Vercel" abaixo).
 7. **Testes automatizados** — tudo até agora foi validado manualmente via requisições HTTP durante o desenvolvimento; não há suíte de testes.
+
+## Limitações conhecidas em produção (deploy de portfólio)
+
+Decisões conscientes pra não bloquear o primeiro deploy — documentadas aqui pra descrição do portfólio, não são bugs:
+
+- **Fechamento de dia manual.** `POST /api/daily-closure` continua disparado pelo botão "Fechar dia de ontem", não por um cron. O Vercel tem Cron Jobs nativos (`vercel.json` → `crons`); dá pra implementar depois criando uma rota que itera todos os usuários (a atual resolve só o usuário logado via `requireUserId`) e protegida por secret, não por sessão.
+- **Upload de avatar/capa só funciona local.** `server/utils/userImageUpload.ts` grava em `public/uploads/` do processo Nitro — em serverless (Vercel) o filesystem é efêmero e o arquivo não sobrevive ao próximo cold start/deploy. A UI em `/perfil` já avisa isso. Pra resolver de verdade, trocar por object storage (Vercel Blob é o mais direto).
+
+## Deploy no Vercel
+
+1. **Banco**: criar um Postgres (Vercel Postgres/Neon via dashboard do projeto no Vercel, ou Neon/Supabase direto) e copiar a connection string.
+2. Rodar `npm run db:migrate` (e `npm run db:seed` uma vez) contra esse banco, com `DATABASE_URL` no `.env` local apontando pra ele — antes de configurar o deploy, pra garantir que o schema já existe em produção.
+3. **Variáveis de ambiente no Vercel** (Project Settings → Environment Variables):
+   - `DATABASE_URL` — a mesma connection string do passo 1.
+   - `NUXT_SESSION_PASSWORD` — string aleatória de 32+ caracteres (`openssl rand -hex 32` ou similar); **obrigatório** em produção, o app recusa subir sem isso.
+   - `GEMINI_API_KEY` — sem isso o Grimório fica indisponível, mas não bloqueia o resto do app.
+4. Deploy via `vercel` CLI (`vercel link` → `vercel --prod`) ou conectando o repositório GitHub direto no dashboard do Vercel.
+5. Testar em produção: registro → login → check-in → fechamento de dia manual, pra confirmar que o cookie de sessão (`nuxt-auth-utils`) funciona no domínio do Vercel.
 
 ## Mapa rápido do código
 

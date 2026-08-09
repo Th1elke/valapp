@@ -1,11 +1,14 @@
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { neonConfig, Pool } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-serverless'
+import ws from 'ws'
 import * as schema from './schema'
 
-const filePath = (process.env.DATABASE_URL ?? 'file:./db/local.db').replace(/^file:/, '')
+neonConfig.webSocketConstructor = ws
 
-const sqlite = new Database(filePath)
-sqlite.pragma('journal_mode = WAL')
-sqlite.pragma('foreign_keys = ON')
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Copy .env.example to .env and fill it in.')
+}
 
-export const db = drizzle(sqlite, { schema })
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+export const db = drizzle(pool, { schema })

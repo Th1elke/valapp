@@ -7,8 +7,8 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
   const userId = await requireUserId(event)
   const coverUrl = await saveUserImage(event, userId, 'cover', 'covers')
 
-  db.update(users).set({ coverUrl, updatedAt: new Date().toISOString() }).where(eq(users.id, userId)).run()
+  await db.update(users).set({ coverUrl, updatedAt: new Date().toISOString() }).where(eq(users.id, userId))
 
-  const updated = db.select().from(users).where(eq(users.id, userId)).get()!
-  return toUserStateDTO(updated)
+  const [updated] = await db.select().from(users).where(eq(users.id, userId))
+  return toUserStateDTO(updated!)
 })

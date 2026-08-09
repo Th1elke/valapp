@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     customDays = [...new Set(body.customDays)].sort((a, b) => a - b)
   }
 
-  const habit = db
+  const [habit] = await db
     .insert(habits)
     .values({
       userId,
@@ -42,7 +42,6 @@ export default defineEventHandler(async (event) => {
       customDays,
     })
     .returning()
-    .get()
 
   return habit
 })

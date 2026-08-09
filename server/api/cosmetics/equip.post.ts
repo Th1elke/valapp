@@ -20,25 +20,23 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
     throw createError({ statusCode: 400, statusMessage: 'category e cosmeticId são obrigatórios.' })
   }
 
-  return db.transaction((tx): UserStateDTO => {
+  return db.transaction(async (tx): Promise<UserStateDTO> => {
     if (cosmeticId !== null) {
       const catalogEntry = COSMETIC_ITEMS.find((c) => c.id === cosmeticId && c.category === category)
       if (!catalogEntry) throw createError({ statusCode: 400, statusMessage: 'Cosmético inválido para essa categoria.' })
 
-      const owned = tx
+      const [owned] = await tx
         .select()
         .from(userCosmetics)
         .where(and(eq(userCosmetics.userId, userId), eq(userCosmetics.cosmeticId, cosmeticId)))
-        .get()
       if (!owned) throw createError({ statusCode: 400, statusMessage: 'Você não possui esse cosmético.' })
     }
 
-    tx.update(users)
+    await tx.update(users)
       .set({ [CATEGORY_COLUMN[category]]: cosmeticId, updatedAt: new Date().toISOString() })
       .where(eq(users.id, userId))
-      .run()
 
-    const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
-    return toUserStateDTO(updated, tx)
+    const [updated] = await tx.select().from(users).where(eq(users.id, userId))
+    return toUserStateDTO(updated!, tx)
   })
 })

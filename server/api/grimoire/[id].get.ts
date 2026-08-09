@@ -8,11 +8,10 @@ export default defineEventHandler(async (event): Promise<GrimoireSessionDTO> => 
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'id é obrigatório.' })
 
-  const session = db
+  const [session] = await db
     .select()
     .from(grimoireSessions)
     .where(and(eq(grimoireSessions.id, id), eq(grimoireSessions.userId, userId)))
-    .get()
   if (!session) throw createError({ statusCode: 404, statusMessage: 'Sessão não encontrada.' })
 
   return toSessionDTO(session)

@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     if (deadline < todayStr()) throw createError({ statusCode: 400, statusMessage: 'O prazo não pode ser no passado.' })
   }
 
-  const mission = db
+  const [mission] = await db
     .insert(missions)
     .values({
       userId,
@@ -35,7 +35,6 @@ export default defineEventHandler(async (event) => {
       deadline,
     })
     .returning()
-    .get()
 
   return mission
 })

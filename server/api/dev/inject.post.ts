@@ -19,8 +19,8 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
   const userId = await requireUserId(event)
   const body = await readBody(event)
 
-  return db.transaction((tx): UserStateDTO => {
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+  return db.transaction(async (tx): Promise<UserStateDTO> => {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
     const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date().toISOString() }
@@ -34,14 +34,14 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
       updates.classChosenAt = body.playerClass ? (user.classChosenAt ?? new Date().toISOString()) : null
     }
     if (Object.keys(updates).length > 1) {
-      tx.update(users).set(updates).where(eq(users.id, userId)).run()
+      await tx.update(users).set(updates).where(eq(users.id, userId))
     }
 
     if (Array.isArray(body.setSkills)) {
-      tx.delete(userSkills).where(eq(userSkills.userId, userId)).run()
+      await tx.delete(userSkills).where(eq(userSkills.userId, userId))
       for (const skillId of body.setSkills) {
         if (typeof skillId === 'string' && getSkill(skillId)) {
-          tx.insert(userSkills).values({ userId, skillId }).run()
+          await tx.insert(userSkills).values({ userId, skillId })
         }
       }
     }
@@ -51,20 +51,19 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
         const raw = (body.inventory as Record<string, unknown>)[itemId]
         if (typeof raw !== 'number') continue
         const quantity = Math.max(0, Math.round(raw))
-        const existing = tx
+        const [existing] = await tx
           .select()
           .from(userInventory)
           .where(and(eq(userInventory.userId, userId), eq(userInventory.itemId, itemId as InventoryItemId)))
-          .get()
         if (existing) {
-          tx.update(userInventory).set({ quantity, updatedAt: new Date().toISOString() }).where(eq(userInventory.id, existing.id)).run()
+          await tx.update(userInventory).set({ quantity, updatedAt: new Date().toISOString() }).where(eq(userInventory.id, existing.id))
         } else if (quantity > 0) {
-          tx.insert(userInventory).values({ userId, itemId: itemId as InventoryItemId, quantity }).run()
+          await tx.insert(userInventory).values({ userId, itemId: itemId as InventoryItemId, quantity })
         }
       }
     }
 
-    const updated = tx.select().from(users).where(eq(users.id, userId)).get()!
-    return toUserStateDTO(updated, tx)
+    const [updated] = await tx.select().from(users).where(eq(users.id, userId))
+    return await toUserStateDTO(updated!, tx)
   })
 })

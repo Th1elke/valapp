@@ -7,26 +7,18 @@ import type { UserStateDTO } from '#shared/types'
 
 type Queryable = Pick<typeof db, 'select'>
 
-export function toUserStateDTO(user: typeof users.$inferSelect, tx: Queryable = db): UserStateDTO {
-  const rows = tx.select().from(userInventory).where(eq(userInventory.userId, user.id)).all()
+export async function toUserStateDTO(user: typeof users.$inferSelect, tx: Queryable = db): Promise<UserStateDTO> {
+  const rows = await tx.select().from(userInventory).where(eq(userInventory.userId, user.id))
   const inventory: Partial<Record<InventoryItemId, number>> = {}
   for (const row of rows) {
     if (row.quantity > 0) inventory[row.itemId] = row.quantity
   }
 
-  const ownedCosmetics = tx
-    .select()
-    .from(userCosmetics)
-    .where(eq(userCosmetics.userId, user.id))
-    .all()
-    .map((row) => row.cosmeticId)
+  const ownedCosmeticsRows = await tx.select().from(userCosmetics).where(eq(userCosmetics.userId, user.id))
+  const ownedCosmetics = ownedCosmeticsRows.map((row) => row.cosmeticId)
 
-  const unlockedSkills = tx
-    .select()
-    .from(userSkills)
-    .where(eq(userSkills.userId, user.id))
-    .all()
-    .map((row) => row.skillId)
+  const unlockedSkillsRows = await tx.select().from(userSkills).where(eq(userSkills.userId, user.id))
+  const unlockedSkills = unlockedSkillsRows.map((row) => row.skillId)
 
   return {
     name: user.name,

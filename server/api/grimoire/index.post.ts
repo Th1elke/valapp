@@ -5,12 +5,11 @@ import { GRIMOIRE_MAX_LENGTH, GRIMOIRE_MAX_LENGTH_BOOSTED, GRIMOIRE_MIN_LENGTH }
 import { hasSkill } from '#shared/skills'
 import type { GrimoireSessionDTO } from '#shared/types'
 
-function getInventoryQty(userId: string, itemId: 'pena_magica' | 'elixir_erudito') {
-  const row = db
+async function getInventoryQty(userId: string, itemId: 'pena_magica' | 'elixir_erudito') {
+  const [row] = await db
     .select()
     .from(userInventory)
     .where(and(eq(userInventory.userId, userId), eq(userInventory.itemId, itemId)))
-    .get()
   return row?.quantity ?? 0
 }
 
@@ -25,7 +24,7 @@ export default defineEventHandler(async (event): Promise<GrimoireSessionDTO> => 
     throw createError({ statusCode: 400, statusMessage: `Cole pelo menos ${GRIMOIRE_MIN_LENGTH} caracteres de conteúdo.` })
   }
 
-  const penaQty = getInventoryQty(userId, 'pena_magica')
+  const penaQty = await getInventoryQty(userId, 'pena_magica')
   const usePena = penaQty > 0 && content.length > GRIMOIRE_MAX_LENGTH
   const effectiveMaxLength = usePena ? GRIMOIRE_MAX_LENGTH_BOOSTED : GRIMOIRE_MAX_LENGTH
 
@@ -33,18 +32,18 @@ export default defineEventHandler(async (event): Promise<GrimoireSessionDTO> => 
     throw createError({ statusCode: 400, statusMessage: `Conteúdo muito longo (máximo ${effectiveMaxLength} caracteres).` })
   }
 
-  const elixirQty = getInventoryQty(userId, 'elixir_erudito')
+  const elixirQty = await getInventoryQty(userId, 'elixir_erudito')
   if (useElixir && elixirQty <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Você não tem Elixir do Erudito.' })
   }
 
   const { summary, quiz } = await generateGrimoireQuiz(content)
 
-  const session = db.transaction((tx) => {
-    const skills = getUnlockedSkillIds(tx, userId)
-    if (usePena) consumeInventoryItem(tx, userId, 'pena_magica', skills)
-    if (useElixir) consumeInventoryItem(tx, userId, 'elixir_erudito', skills)
-    return tx
+  const session = await db.transaction(async (tx) => {
+    const skills = await getUnlockedSkillIds(tx, userId)
+    if (usePena) await consumeInventoryItem(tx, userId, 'pena_magica', skills)
+    if (useElixir) await consumeInventoryItem(tx, userId, 'elixir_erudito', skills)
+    const [row] = await tx
       .insert(grimoireSessions)
       .values({
         userId,
@@ -55,7 +54,7 @@ export default defineEventHandler(async (event): Promise<GrimoireSessionDTO> => 
         apostaAltaUsada: apostaAlta && hasSkill(skills, 'ladino_aposta_alta'),
       })
       .returning()
-      .get()
+    return row!
   })
 
   return toSessionDTO(session)

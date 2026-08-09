@@ -34,12 +34,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const updated = db
+  const [updated] = await db
     .update(habits)
     .set(updates)
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
     .returning()
-    .get()
 
   if (!updated) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
   return updated

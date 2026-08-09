@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { pgTable, text, integer, boolean, jsonb, uniqueIndex } from 'drizzle-orm/pg-core'
 
 const id = () =>
   text('id')
@@ -57,7 +57,7 @@ export const inventoryItemIds = [
   'pena_magica',
 ] as const
 
-export const users = sqliteTable('users', {
+export const users = pgTable('users', {
   id: id(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
@@ -89,7 +89,7 @@ export const users = sqliteTable('users', {
   updatedAt: updatedAt(),
 })
 
-export const habits = sqliteTable('habits', {
+export const habits = pgTable('habits', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -98,7 +98,7 @@ export const habits = sqliteTable('habits', {
   category: text('category', { enum: habitCategories }).notNull(),
   difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
   frequency: text('frequency', { enum: habitFrequencies }).notNull().default('diaria'),
-  customDays: text('custom_days', { mode: 'json' }).$type<number[]>(),
+  customDays: jsonb('custom_days').$type<number[]>(),
 
   status: text('status', { enum: habitStatuses }).notNull().default('ativo'),
   pausedFrom: text('paused_from'),
@@ -114,7 +114,7 @@ export const habits = sqliteTable('habits', {
   updatedAt: updatedAt(),
 })
 
-export const checkIns = sqliteTable(
+export const checkIns = pgTable(
   'check_ins',
   {
     id: id(),
@@ -133,7 +133,7 @@ export const checkIns = sqliteTable(
   (table) => [uniqueIndex('check_ins_habit_date_unique').on(table.habitId, table.checkinDate)],
 )
 
-export const xpEvents = sqliteTable('xp_events', {
+export const xpEvents = pgTable('xp_events', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -145,7 +145,7 @@ export const xpEvents = sqliteTable('xp_events', {
   createdAt: createdAt(),
 })
 
-export const hpEvents = sqliteTable('hp_events', {
+export const hpEvents = pgTable('hp_events', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -157,7 +157,7 @@ export const hpEvents = sqliteTable('hp_events', {
   createdAt: createdAt(),
 })
 
-export const goldEvents = sqliteTable('gold_events', {
+export const goldEvents = pgTable('gold_events', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -170,7 +170,7 @@ export const goldEvents = sqliteTable('gold_events', {
   createdAt: createdAt(),
 })
 
-export const missions = sqliteTable('missions', {
+export const missions = pgTable('missions', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -200,27 +200,27 @@ export interface GrimoireAnswer {
   correct: boolean
 }
 
-export const grimoireSessions = sqliteTable('grimoire_sessions', {
+export const grimoireSessions = pgTable('grimoire_sessions', {
   id: id(),
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   summary: text('summary').notNull(),
-  quiz: text('quiz', { mode: 'json' }).$type<GrimoireQuizQuestion[]>().notNull(),
-  answers: text('answers', { mode: 'json' }).$type<GrimoireAnswer[]>().notNull().$defaultFn(() => []),
+  quiz: jsonb('quiz').$type<GrimoireQuizQuestion[]>().notNull(),
+  answers: jsonb('answers').$type<GrimoireAnswer[]>().notNull().$defaultFn(() => []),
   status: text('status', { enum: grimoireStatuses }).notNull().default('gerado'),
   correctCount: integer('correct_count'),
   xpAwarded: integer('xp_awarded'),
-  xpBoosted: integer('xp_boosted', { mode: 'boolean' }).notNull().default(false),
-  clarividenciaUsed: integer('clarividencia_used', { mode: 'boolean' }).notNull().default(false),
-  manipulacaoUsada: integer('manipulacao_usada', { mode: 'boolean' }).notNull().default(false),
-  apostaAltaUsada: integer('aposta_alta_usada', { mode: 'boolean' }).notNull().default(false),
+  xpBoosted: boolean('xp_boosted').notNull().default(false),
+  clarividenciaUsed: boolean('clarividencia_used').notNull().default(false),
+  manipulacaoUsada: boolean('manipulacao_usada').notNull().default(false),
+  apostaAltaUsada: boolean('aposta_alta_usada').notNull().default(false),
   createdAt: createdAt(),
   completedAt: text('completed_at'),
 })
 
-export const userSkills = sqliteTable(
+export const userSkills = pgTable(
   'user_skills',
   {
     id: id(),
@@ -233,7 +233,7 @@ export const userSkills = sqliteTable(
   (table) => [uniqueIndex('user_skills_user_skill_unique').on(table.userId, table.skillId)],
 )
 
-export const userInventory = sqliteTable(
+export const userInventory = pgTable(
   'user_inventory',
   {
     id: id(),
@@ -247,7 +247,7 @@ export const userInventory = sqliteTable(
   (table) => [uniqueIndex('user_inventory_user_item_unique').on(table.userId, table.itemId)],
 )
 
-export const userCosmetics = sqliteTable(
+export const userCosmetics = pgTable(
   'user_cosmetics',
   {
     id: id(),
@@ -260,7 +260,7 @@ export const userCosmetics = sqliteTable(
   (table) => [uniqueIndex('user_cosmetics_user_cosmetic_unique').on(table.userId, table.cosmeticId)],
 )
 
-export const shieldUses = sqliteTable(
+export const shieldUses = pgTable(
   'shield_uses',
   {
     id: id(),
@@ -276,7 +276,7 @@ export const shieldUses = sqliteTable(
   (table) => [uniqueIndex('shield_uses_user_week_unique').on(table.userId, table.weekStart)],
 )
 
-export const classChanges = sqliteTable('class_changes', {
+export const classChanges = pgTable('class_changes', {
   id: id(),
   userId: text('user_id')
     .notNull()
@@ -287,7 +287,7 @@ export const classChanges = sqliteTable('class_changes', {
   changedAt: createdAt(),
 })
 
-export const dailyClosures = sqliteTable(
+export const dailyClosures = pgTable(
   'daily_closures',
   {
     id: id(),
@@ -295,8 +295,8 @@ export const dailyClosures = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     closureDate: text('closure_date').notNull(),
-    perfectDay: integer('perfect_day', { mode: 'boolean' }).notNull().default(false),
-    relapsed: integer('relapsed', { mode: 'boolean' }).notNull().default(false),
+    perfectDay: boolean('perfect_day').notNull().default(false),
+    relapsed: boolean('relapsed').notNull().default(false),
     xpChange: integer('xp_change').notNull().default(0),
     hpChange: integer('hp_change').notNull().default(0),
     goldChange: integer('gold_change').notNull().default(0),

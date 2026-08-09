@@ -5,22 +5,22 @@ import { users } from './schema'
 import { DEMO_USER_ID } from '../shared/constants'
 import { HP_INITIAL } from '../shared/gamification'
 
-const existing = db.select().from(users).where(eq(users.id, DEMO_USER_ID)).get()
+const [existing] = await db.select().from(users).where(eq(users.id, DEMO_USER_ID))
 
 if (existing) {
   console.log('Demo user already exists, skipping seed.')
 } else {
-  db.insert(users)
-    .values({
-      id: DEMO_USER_ID,
-      email: 'demo@valapp.local',
-      passwordHash: 'no-auth-yet',
-      name: 'Gustavo',
-      level: 1,
-      xp: 0,
-      hp: HP_INITIAL,
-      shieldsRemaining: 1,
-    })
-    .run()
+  await db.insert(users).values({
+    id: DEMO_USER_ID,
+    email: 'demo@valapp.local',
+    passwordHash: 'no-auth-yet',
+    name: 'Gustavo',
+    level: 1,
+    xp: 0,
+    hp: HP_INITIAL,
+    shieldsRemaining: 1,
+  })
   console.log('Demo user seeded.')
 }
+
+process.exit(0)

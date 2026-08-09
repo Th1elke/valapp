@@ -2,7 +2,7 @@
 
 Drizzle ORM. O schema implementa exatamente as regras de [01-regras-gamificacao.md](01-regras-gamificacao.md).
 
-> **Nota (2026-08-07):** o plano original era Postgres, mas esta máquina de desenvolvimento não tem Docker nem Postgres instalado. Por ora o projeto roda em **SQLite local** (`better-sqlite3`, arquivo em `db/local.db`) — o schema em [db/schema.ts](../db/schema.ts) é logicamente idêntico ao descrito aqui, só usa `sqlite-core` em vez de `pg-core` (enums viram `text` com union type, `uuid` vira `text` com `crypto.randomUUID()`, arrays viram JSON). Migrar para Postgres depois é só trocar o dialeto no schema/client/`drizzle.config.ts`.
+> **Nota (2026-08-09):** o projeto rodou em SQLite local (`better-sqlite3`) durante boa parte do desenvolvimento porque a máquina original não tinha Docker/Postgres — migrado para **Postgres** (`@neondatabase/serverless`, driver `neon-serverless` via `Pool`/WebSocket) para o deploy no Vercel, cujas funções serverless têm filesystem efêmero e não sobrevivem gravações em disco entre invocações. O schema em [db/schema.ts](../db/schema.ts) usa `pg-core` (enums continuam `text` com union type; `id` continua `text` com `crypto.randomUUID()` em vez de um tipo `uuid` nativo, pra minimizar a mudança; arrays/JSON viram `jsonb`). A migração de dialeto também obrigou a reescrever toda a camada de acesso a dados de síncrona (`better-sqlite3`) para assíncrona (`await`/`Promise`), já que todo `server/api/**` usava a API síncrona (`.get()`/`.run()`/`.all()`).
 
 ## Decisões de design
 

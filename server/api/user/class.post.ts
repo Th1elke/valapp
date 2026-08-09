@@ -11,8 +11,8 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
     throw createError({ statusCode: 400, statusMessage: 'Classe inválida.' })
   }
 
-  return db.transaction((tx): UserStateDTO => {
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+  return db.transaction(async (tx): Promise<UserStateDTO> => {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
     if (user.level < 5) {
       throw createError({ statusCode: 400, statusMessage: 'Só é possível escolher uma classe a partir do nível 5.' })
@@ -20,13 +20,12 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
 
     // Escolha inicial (nível 5, sem custo nem cooldown — ver docs seção 4).
     if (!user.playerClass) {
-      const updated = tx
+      const [updated] = await tx
         .update(users)
         .set({ playerClass: body.playerClass, classChosenAt: new Date().toISOString() })
         .where(eq(users.id, userId))
         .returning()
-        .get()!
-      return toUserStateDTO(updated, tx)
+      return await toUserStateDTO(updated!, tx)
     }
 
     // Troca de classe (docs seção 4.3): 1x a cada 90 dias, custando 30% do XP atual.
@@ -47,16 +46,15 @@ export default defineEventHandler(async (event): Promise<UserStateDTO> => {
     const newLevel = levelForXp(newXp)
     const now = new Date().toISOString()
 
-    tx.insert(classChanges).values({ userId, oldClass: user.playerClass, newClass: body.playerClass, xpCost }).run()
-    tx.insert(xpEvents).values({ userId, type: 'custo_troca_classe', amount: -xpCost, balanceAfter: newXp }).run()
+    await tx.insert(classChanges).values({ userId, oldClass: user.playerClass, newClass: body.playerClass, xpCost })
+    await tx.insert(xpEvents).values({ userId, type: 'custo_troca_classe', amount: -xpCost, balanceAfter: newXp })
 
-    const updated = tx
+    const [updated] = await tx
       .update(users)
       .set({ playerClass: body.playerClass, xp: newXp, level: newLevel, lastClassChangeAt: now, updatedAt: now })
       .where(eq(users.id, userId))
       .returning()
-      .get()!
 
-    return toUserStateDTO(updated, tx)
+    return await toUserStateDTO(updated!, tx)
   })
 })

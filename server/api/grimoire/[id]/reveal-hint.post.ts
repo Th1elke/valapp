@@ -27,12 +27,11 @@ export default defineEventHandler(async (event): Promise<RevealHintResultDTO> =>
     throw createError({ statusCode: 400, statusMessage: 'questionIndex é obrigatório.' })
   }
 
-  return db.transaction((tx): RevealHintResultDTO => {
-    const session = tx
+  return db.transaction(async (tx): Promise<RevealHintResultDTO> => {
+    const [session] = await tx
       .select()
       .from(grimoireSessions)
       .where(and(eq(grimoireSessions.id, id), eq(grimoireSessions.userId, userId)))
-      .get()
     if (!session) throw createError({ statusCode: 404, statusMessage: 'Sessão não encontrada.' })
     if (session.status === 'concluida') throw createError({ statusCode: 400, statusMessage: 'Batalha já concluída.' })
 
@@ -42,11 +41,11 @@ export default defineEventHandler(async (event): Promise<RevealHintResultDTO> =>
       throw createError({ statusCode: 409, statusMessage: 'Essa pergunta já foi respondida.' })
     }
 
-    const skills = getUnlockedSkillIds(tx, userId)
+    const skills = await getUnlockedSkillIds(tx, userId)
     const manipulacaoFree = hasSkill(skills, 'mago_manipulacao_destino') && !session.manipulacaoUsada
 
     if (!manipulacaoFree) {
-      const { hadItem } = consumeInventoryItem(tx, userId, 'olho_visao', skills)
+      const { hadItem } = await consumeInventoryItem(tx, userId, 'olho_visao', skills)
       if (!hadItem) throw createError({ statusCode: 400, statusMessage: 'Você não tem o Olho da Visão Verdadeira.' })
     }
 
@@ -57,7 +56,7 @@ export default defineEventHandler(async (event): Promise<RevealHintResultDTO> =>
     const eliminatedIndices = shuffle(wrongIndices).slice(0, 2)
 
     if (manipulacaoFree) {
-      tx.update(grimoireSessions).set({ manipulacaoUsada: true }).where(eq(grimoireSessions.id, session.id)).run()
+      await tx.update(grimoireSessions).set({ manipulacaoUsada: true }).where(eq(grimoireSessions.id, session.id))
     }
 
     return { eliminatedIndices }

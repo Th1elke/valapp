@@ -25,12 +25,11 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
     throw createError({ statusCode: 400, statusMessage: 'questionIndex e selectedOption são obrigatórios.' })
   }
 
-  return db.transaction((tx): GrimoireAnswerResultDTO => {
-    const session = tx
+  return db.transaction(async (tx): Promise<GrimoireAnswerResultDTO> => {
+    const [session] = await tx
       .select()
       .from(grimoireSessions)
       .where(and(eq(grimoireSessions.id, id), eq(grimoireSessions.userId, userId)))
-      .get()
     if (!session) throw createError({ statusCode: 404, statusMessage: 'Sessão não encontrada.' })
     if (session.status === 'concluida') throw createError({ statusCode: 400, statusMessage: 'Batalha já concluída.' })
 
@@ -40,14 +39,14 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
       throw createError({ statusCode: 409, statusMessage: 'Essa pergunta já foi respondida.' })
     }
 
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
-    const skills = getUnlockedSkillIds(tx, userId)
+    const skills = await getUnlockedSkillIds(tx, userId)
     const correct = selectedOption === question.correctIndex
 
     if (!correct) {
-      const shield = consumeInventoryItem(tx, userId, 'escudo_cristal', skills)
+      const shield = await consumeInventoryItem(tx, userId, 'escudo_cristal', skills)
       if (shield.hadItem) {
         return {
           correct: false,
@@ -103,17 +102,15 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
           relapsed = true
           const relapseXp = computeRelapseXp(xp)
           const relapseLevel = levelForXp(relapseXp)
-          tx.insert(xpEvents)
+          await tx.insert(xpEvents)
             .values({ userId, type: 'penalidade_recaida', amount: relapseXp - xp, balanceAfter: relapseXp })
-            .run()
           xp = relapseXp
           level = relapseLevel
           hp = getRelapseHpRestore(skills)
-          tx.insert(hpEvents).values({ userId, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp }).run()
+          await tx.insert(hpEvents).values({ userId, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp })
         } else {
-          tx.insert(hpEvents)
+          await tx.insert(hpEvents)
             .values({ userId, habitId: null, type: 'grimorio_erro', amount: hp - user.hp, hpAfter: hp })
-            .run()
         }
       }
     }
@@ -129,7 +126,7 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
       if (xpAwarded > 0) {
         const newXp = xp + xpAwarded
         level = levelForXp(newXp)
-        tx.insert(xpEvents).values({ userId, type: 'grimorio', amount: xpAwarded, balanceAfter: newXp }).run()
+        await tx.insert(xpEvents).values({ userId, type: 'grimorio', amount: xpAwarded, balanceAfter: newXp })
         xp = newXp
       }
 
@@ -137,14 +134,14 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
         const goldAwarded = grimoireGoldReward(correctCount) * (session.apostaAltaUsada ? 2 : 1)
         if (goldAwarded > 0) {
           gold = user.gold + goldAwarded
-          tx.insert(goldEvents).values({ userId, type: 'grimorio', amount: goldAwarded, balanceAfter: gold }).run()
+          await tx.insert(goldEvents).values({ userId, type: 'grimorio', amount: goldAwarded, balanceAfter: gold })
         }
       }
     }
 
-    tx.update(users).set({ hp, xp, level, gold, updatedAt: new Date().toISOString() }).where(eq(users.id, userId)).run()
+    await tx.update(users).set({ hp, xp, level, gold, updatedAt: new Date().toISOString() }).where(eq(users.id, userId))
 
-    tx.update(grimoireSessions)
+    await tx.update(grimoireSessions)
       .set({
         answers: newAnswers,
         status: battleComplete ? 'concluida' : 'gerado',
@@ -154,7 +151,6 @@ export default defineEventHandler(async (event): Promise<GrimoireAnswerResultDTO
         completedAt: battleComplete ? new Date().toISOString() : null,
       })
       .where(eq(grimoireSessions.id, session.id))
-      .run()
 
     return {
       correct,

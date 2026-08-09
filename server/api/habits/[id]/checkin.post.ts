@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
 
   const today = todayStr()
 
-  return db.transaction((tx) => {
-    const habit = tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).get()
+  return db.transaction(async (tx) => {
+    const [habit] = await tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId)))
     if (!habit) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
     if (habit.status !== 'ativo') {
       throw createError({ statusCode: 400, statusMessage: 'Hábito pausado ou arquivado não pode receber check-in.' })
@@ -31,17 +31,16 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Esse hábito não está previsto para hoje.' })
     }
 
-    const already = tx
+    const [already] = await tx
       .select()
       .from(checkIns)
       .where(and(eq(checkIns.habitId, id), eq(checkIns.checkinDate, today)))
-      .get()
     if (already) throw createError({ statusCode: 409, statusMessage: 'Check-in de hoje já registrado.' })
 
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
-    const skills = getUnlockedSkillIds(tx, userId)
+    const skills = await getUnlockedSkillIds(tx, userId)
     const hpRatio = user.hp / HP_MAX
 
     const newStreak = habit.streakCount + 1
@@ -77,18 +76,17 @@ export default defineEventHandler(async (event) => {
     const newGold = user.gold + goldAwarded
     const newLevel = levelForXp(newXp)
 
-    tx.insert(checkIns)
-      .values({
-        habitId: habit.id,
-        userId,
-        checkinDate: today,
-        xpAwarded,
-        goldAwarded,
-        streakAtCheckin: newStreak,
-      })
-      .run()
+    await tx.insert(checkIns).values({
+      habitId: habit.id,
+      userId,
+      checkinDate: today,
+      xpAwarded,
+      goldAwarded,
+      streakAtCheckin: newStreak,
+    })
 
-    tx.update(habits)
+    await tx
+      .update(habits)
       .set({
         streakCount: newStreak,
         longestStreak: Math.max(habit.longestStreak, newStreak),
@@ -96,39 +94,34 @@ export default defineEventHandler(async (event) => {
         updatedAt: new Date().toISOString(),
       })
       .where(eq(habits.id, habit.id))
-      .run()
 
-    tx.update(users)
+    await tx
+      .update(users)
       .set({ xp: newXp, level: newLevel, gold: newGold, hp: newHp, updatedAt: new Date().toISOString() })
       .where(eq(users.id, userId))
-      .run()
 
     const baseXpAwarded = xpAwarded - tiroCerteiroBonus
     if (baseXpAwarded > 0) {
-      tx.insert(xpEvents)
-        .values({
-          userId,
-          habitId: habit.id,
-          type: justDominated ? 'ajuste_manual' : critFired ? 'golpe_duplo' : 'checkin',
-          amount: baseXpAwarded,
-          balanceAfter: newXp,
-        })
-        .run()
+      await tx.insert(xpEvents).values({
+        userId,
+        habitId: habit.id,
+        type: justDominated ? 'ajuste_manual' : critFired ? 'golpe_duplo' : 'checkin',
+        amount: baseXpAwarded,
+        balanceAfter: newXp,
+      })
     }
     if (tiroCerteiroBonus > 0) {
-      tx.insert(xpEvents)
+      await tx
+        .insert(xpEvents)
         .values({ userId, habitId: habit.id, type: 'tiro_certeiro', amount: tiroCerteiroBonus, balanceAfter: newXp })
-        .run()
     }
 
-    tx.insert(goldEvents)
-      .values({ userId, habitId: habit.id, type: 'checkin', amount: goldAwarded, balanceAfter: newGold })
-      .run()
+    await tx.insert(goldEvents).values({ userId, habitId: habit.id, type: 'checkin', amount: goldAwarded, balanceAfter: newGold })
 
     if (newHp !== user.hp) {
-      tx.insert(hpEvents)
+      await tx
+        .insert(hpEvents)
         .values({ userId, habitId: habit.id, type: 'penitencia', amount: newHp - user.hp, hpAfter: newHp })
-        .run()
     }
 
     return {

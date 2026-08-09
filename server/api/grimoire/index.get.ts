@@ -5,12 +5,11 @@ import type { GrimoireSessionDTO } from '#shared/types'
 
 export default defineEventHandler(async (event): Promise<GrimoireSessionDTO[]> => {
   const userId = await requireUserId(event)
-  const rows = db
+  const rows = await db
     .select()
     .from(grimoireSessions)
     .where(eq(grimoireSessions.userId, userId))
     .orderBy(desc(grimoireSessions.createdAt))
-    .all()
 
   return rows.map(toSessionDTO)
 })

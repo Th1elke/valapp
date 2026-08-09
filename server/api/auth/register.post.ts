@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   if (password.length < 8) throw createError({ statusCode: 400, statusMessage: 'A senha precisa ter pelo menos 8 caracteres.' })
   if (!name) throw createError({ statusCode: 400, statusMessage: 'Nome é obrigatório.' })
 
-  const existing = db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email))
   if (existing) throw emailTaken()
 
   const passwordHash = await hashPassword(password)
@@ -34,20 +34,21 @@ export default defineEventHandler(async (event) => {
     // Atomic claim: the WHERE clause itself is the concurrency guard (SQLite resolves it as a
     // single UPDATE), so two simultaneous registrations can't both "win" the seed account — the
     // loser just finds 0 rows matched and falls through to a normal insert below.
-    const claimed = db
+    const [claimed] = await db
       .update(users)
       .set({ email, passwordHash, name, shieldWeekStart: weekStartStr(), updatedAt: new Date().toISOString() })
       .where(eq(users.passwordHash, UNCLAIMED_PASSWORD_HASH))
       .returning(RETURNING_COLUMNS)
-      .get()
 
     user =
       claimed ??
-      db.insert(users).values({ email, passwordHash, name, shieldWeekStart: weekStartStr() }).returning(RETURNING_COLUMNS).get()
+      (await db.insert(users).values({ email, passwordHash, name, shieldWeekStart: weekStartStr() }).returning(RETURNING_COLUMNS))[0]!
   } catch (err) {
     // Two concurrent requests can both pass the `existing` check above for the same e-mail;
     // the unique index is the real guard, this just turns that into a friendly error.
-    if (err instanceof Error && err.message.includes('UNIQUE')) throw emailTaken()
+    // Postgres reports a unique-violation as SQLSTATE 23505 (error message text isn't stable
+    // across drivers/dialects, unlike SQLite's old "UNIQUE constraint failed" string).
+    if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') throw emailTaken()
     throw err
   }
 

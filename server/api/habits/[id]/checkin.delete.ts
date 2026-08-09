@@ -10,18 +10,17 @@ export default defineEventHandler(async (event) => {
 
   const today = todayStr()
 
-  return db.transaction((tx) => {
-    const habit = tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).get()
+  return db.transaction(async (tx) => {
+    const [habit] = await tx.select().from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId)))
     if (!habit) throw createError({ statusCode: 404, statusMessage: 'Hábito não encontrado.' })
 
-    const todayCheckin = tx
+    const [todayCheckin] = await tx
       .select()
       .from(checkIns)
       .where(and(eq(checkIns.habitId, id), eq(checkIns.checkinDate, today)))
-      .get()
     if (!todayCheckin) throw createError({ statusCode: 404, statusMessage: 'Nenhum check-in de hoje para desfazer.' })
 
-    const user = tx.select().from(users).where(eq(users.id, userId)).get()
+    const [user] = await tx.select().from(users).where(eq(users.id, userId))
     if (!user) throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado.' })
 
     const newXp = Math.max(0, user.xp - todayCheckin.xpAwarded)
@@ -29,16 +28,15 @@ export default defineEventHandler(async (event) => {
     const newLevel = levelForXp(newXp)
     const newStreak = Math.max(0, todayCheckin.streakAtCheckin - 1)
 
-    tx.delete(checkIns).where(eq(checkIns.id, todayCheckin.id)).run()
+    await tx.delete(checkIns).where(eq(checkIns.id, todayCheckin.id))
 
-    tx.update(habits).set({ streakCount: newStreak, updatedAt: new Date().toISOString() }).where(eq(habits.id, habit.id)).run()
+    await tx.update(habits).set({ streakCount: newStreak, updatedAt: new Date().toISOString() }).where(eq(habits.id, habit.id))
 
-    tx.update(users)
+    await tx.update(users)
       .set({ xp: newXp, level: newLevel, gold: newGold, updatedAt: new Date().toISOString() })
       .where(eq(users.id, userId))
-      .run()
 
-    tx.insert(xpEvents)
+    await tx.insert(xpEvents)
       .values({
         userId,
         habitId: habit.id,
@@ -46,9 +44,8 @@ export default defineEventHandler(async (event) => {
         amount: -todayCheckin.xpAwarded,
         balanceAfter: newXp,
       })
-      .run()
 
-    tx.insert(goldEvents)
+    await tx.insert(goldEvents)
       .values({
         userId,
         habitId: habit.id,
@@ -56,7 +53,6 @@ export default defineEventHandler(async (event) => {
         amount: -todayCheckin.goldAwarded,
         balanceAfter: newGold,
       })
-      .run()
 
     return { xp: newXp, gold: newGold, level: newLevel, streak: newStreak }
   })

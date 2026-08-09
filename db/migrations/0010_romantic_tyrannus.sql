@@ -1,1 +1,0 @@
-ALTER TABLE `missions` ADD `deadline` text;

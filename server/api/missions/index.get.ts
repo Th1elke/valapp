@@ -5,11 +5,10 @@ import type { MissionDTO } from '#shared/types'
 
 export default defineEventHandler(async (event): Promise<MissionDTO[]> => {
   const userId = await requireUserId(event)
-  const rows = db
+  const rows = await db
     .select()
     .from(missions)
     .where(and(eq(missions.userId, userId), eq(missions.status, 'ativa')))
-    .all()
 
   return rows.map((m) => ({
     id: m.id,

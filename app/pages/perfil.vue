@@ -251,6 +251,9 @@ const milestones = computed(() => [
       </div>
       <p v-if="coverError" class="px-6 pt-2 text-xs text-red-400">{{ coverError }}</p>
       <p v-if="avatarError" class="px-6 pt-2 text-xs text-red-400">{{ avatarError }}</p>
+      <p class="px-6 pb-2 pt-2 text-xs text-muted-foreground">
+        Upload de foto de perfil/capa funciona apenas rodando o app localmente — em produção (serverless) o arquivo não persiste entre deploys.
+      </p>
     </div>
 
     <div v-if="canChooseClass" class="glass-panel space-y-4 p-5">
