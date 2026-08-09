@@ -151,9 +151,9 @@ Catálogo inteiro em `shared/economy.ts` (`SHOP_ITEMS`), cada item com um `effec
 
 ## Foto de perfil e capa
 
-- Upload genérico compartilhado em `server/utils/userImageUpload.ts` (`saveUserImage`) — valida tipo (PNG/JPEG/WEBP/GIF) e tamanho (5MB), salva em `public/uploads/<subdir>/<DEMO_USER_ID>.<ext>` (pasta ignorada no git), sobrescrevendo qualquer arquivo anterior do usuário.
+- Upload genérico compartilhado em `server/utils/userImageUpload.ts` (`saveUserImage`) — valida tipo (PNG/JPEG/WEBP/GIF) e tamanho (5MB), salva no **Vercel Blob** (`@vercel/blob`, `put()`) em `<subdir>/<userId>.<ext>`, sobrescrevendo qualquer upload anterior do mesmo usuário (limpa blobs antigos com `list()`/`del()` primeiro, pra não deixar lixo quando a extensão muda entre uploads).
 - Avatar: `POST /api/user/avatar` → `users.avatarUrl`. Capa: `POST /api/user/cover` → `users.coverUrl`.
-- Só funciona rodando localmente (grava em `public/` do processo Nitro) — não sobrevive a um deploy serverless de verdade, é uma limitação conhecida enquanto o projeto for local-only.
+- Requer `BLOB_READ_WRITE_TOKEN` no ambiente (auto-configurado em produção se o Blob store foi criado pela Storage tab do projeto na Vercel; em dev local é opcional, só necessário pra testar essas duas rotas).
 
 ## Árvore de Habilidades
 

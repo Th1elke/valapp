@@ -3,9 +3,14 @@ import { Coins, Crown, Eye, Feather, Gem, Heart, Hourglass, ShieldPlus, Sparkles
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { COSMETIC_ITEMS, type CosmeticCategory } from '#shared/cosmetics'
-import { getEffectiveCost, getMaxShields, SHOP_ITEMS, type ShopItem, type ShopItemId } from '#shared/economy'
+import { getEffectiveCost, getMaxShields, SHOP_ITEMS, type ItemAccent, type ShopItem, type ShopItemId } from '#shared/economy'
 
 const cosmeticIcons: Record<CosmeticCategory, typeof Crown> = { titulo: Crown, borda: Gem, tema: Sparkles }
+
+/** Prestige badges use a light pearlescent background, so the icon needs a dark tone to stay legible. */
+function badgeIconClass(accent: ItemAccent) {
+  return accent.kind === 'prestige' ? 'text-amber-900' : 'text-white'
+}
 
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: habits } = useHabits()
@@ -90,8 +95,11 @@ async function buyCosmetic(cosmeticId: string) {
       <Card v-for="item in SHOP_ITEMS" :key="item.id" class="glass-panel border-0">
         <CardContent class="flex flex-col gap-4 pt-6">
           <div class="flex items-center gap-3">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500">
-              <component :is="itemIcons[item.id]" :size="22" class="text-white" />
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+              :class="[item.accent.className, item.accent.kind === 'prestige' ? item.accent.glowClassName : '']"
+            >
+              <component :is="itemIcons[item.id]" :size="22" :class="badgeIconClass(item.accent)" />
             </div>
             <div class="min-w-0">
               <p class="font-medium">{{ item.name }}</p>
@@ -150,8 +158,11 @@ async function buyCosmetic(cosmeticId: string) {
         <Card v-for="cosmetic in COSMETIC_ITEMS" :key="cosmetic.id" class="glass-panel border-0">
           <CardContent class="flex flex-col gap-4 pt-6">
             <div class="flex items-center gap-3">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-400 to-violet-600">
-                <component :is="cosmeticIcons[cosmetic.category]" :size="22" class="text-white" />
+              <div
+                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+                :class="[cosmetic.accent.className, cosmetic.accent.kind === 'prestige' ? cosmetic.accent.glowClassName : '']"
+              >
+                <component :is="cosmeticIcons[cosmetic.category]" :size="22" :class="badgeIconClass(cosmetic.accent)" />
               </div>
               <div class="min-w-0">
                 <p class="font-medium">{{ cosmetic.name }}</p>

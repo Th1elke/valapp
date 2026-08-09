@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BORDERS, THEMES, TITLES, type CosmeticCategory } from '#shared/cosmetics'
 import { getMaxShields } from '#shared/economy'
 import { CLASS_CHANGE_COOLDOWN_DAYS, CLASS_CHANGE_XP_COST_PERCENT, getClassInfo } from '#shared/gamification'
@@ -251,9 +252,6 @@ const milestones = computed(() => [
       </div>
       <p v-if="coverError" class="px-6 pt-2 text-xs text-red-400">{{ coverError }}</p>
       <p v-if="avatarError" class="px-6 pt-2 text-xs text-red-400">{{ avatarError }}</p>
-      <p class="px-6 pb-2 pt-2 text-xs text-muted-foreground">
-        Upload de foto de perfil/capa funciona apenas rodando o app localmente — em produção (serverless) o arquivo não persiste entre deploys.
-      </p>
     </div>
 
     <div v-if="canChooseClass" class="glass-panel space-y-4 p-5">
@@ -343,16 +341,16 @@ const milestones = computed(() => [
             Proteger sequência de um hábito
           </button>
         </div>
-        <select
-          v-if="shieldTargetType === 'protecao_streak'"
-          v-model="shieldHabitId"
-          class="glass-inset w-full rounded-xl border-0 bg-transparent px-3 py-2 text-sm"
-        >
-          <option value="" disabled>Escolha um hábito</option>
-          <option v-for="habit in activeHabitsForShield" :key="habit.id" :value="habit.id">
-            {{ habit.name }} (sequência: {{ habit.streakCount }})
-          </option>
-        </select>
+        <Select v-if="shieldTargetType === 'protecao_streak'" v-model="shieldHabitId">
+          <SelectTrigger>
+            <SelectValue placeholder="Escolha um hábito" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="habit in activeHabitsForShield" :key="habit.id" :value="habit.id">
+              {{ habit.name }} (sequência: {{ habit.streakCount }})
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Button size="sm" class="rounded-full" :disabled="usingShield" @click="activateShield">
           {{ usingShield ? 'Ativando…' : 'Usar escudo' }}
         </Button>

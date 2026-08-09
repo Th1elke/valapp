@@ -22,6 +22,7 @@ Edita o `.env` gerado:
 - `DATABASE_URL` — string de conexão Postgres (`postgresql://user:senha@host/db?sslmode=require`). Pra dev local, o mais rápido é criar um banco grátis no [Neon](https://neon.tech) ou no [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) (mesma coisa, é Neon por baixo) e colar a connection string aqui.
 - `GEMINI_API_KEY=""` — pega uma chave grátis em https://aistudio.google.com/apikey (sem cartão) e cola aqui. Sem isso o Grimório não funciona (o resto do app funciona normalmente).
 - `NUXT_SESSION_PASSWORD` — string de 32+ caracteres pra selar o cookie de sessão; o `nuxt-auth-utils` gera uma sozinho em dev se faltar, mas em produção é obrigatório definir.
+- `BLOB_READ_WRITE_TOKEN=""` — só necessário se for testar upload de foto de perfil/capa localmente (Storage tab do projeto na Vercel → Create → Blob → copia o token de lá). Sem isso o resto do app funciona normal, só essas duas rotas falham.
 
 ```bash
 npm run db:migrate   # aplica as migrations em db/migrations/ no Postgres apontado por DATABASE_URL
@@ -97,7 +98,7 @@ Em ordem sugerida de prioridade:
 3. ~~Postgres em produção~~ — feito, ver decisão #1 acima.
 4. **Cron real** para o fechamento diário — decisão consciente de deixar como está (botão manual) pro deploy inicial de portfólio; ver seção "Limitações conhecidas em produção" abaixo.
 5. Modo `semanal` flexível e pausa com datas (itens acima — `dias_customizados` já está pronto).
-6. **Deploy** — schema/client/config migrados pra Postgres e prontos; falta provisionar o banco de produção e rodar o deploy no Vercel (ver "Deploy no Vercel" abaixo).
+6. ~~Deploy~~ — feito, app no ar no Vercel com Postgres (Neon) de produção. Ver "Deploy no Vercel" abaixo pra reproduzir/atualizar.
 7. **Testes automatizados** — tudo até agora foi validado manualmente via requisições HTTP durante o desenvolvimento; não há suíte de testes.
 
 ## Limitações conhecidas em produção (deploy de portfólio)
@@ -105,18 +106,19 @@ Em ordem sugerida de prioridade:
 Decisões conscientes pra não bloquear o primeiro deploy — documentadas aqui pra descrição do portfólio, não são bugs:
 
 - **Fechamento de dia manual.** `POST /api/daily-closure` continua disparado pelo botão "Fechar dia de ontem", não por um cron. O Vercel tem Cron Jobs nativos (`vercel.json` → `crons`); dá pra implementar depois criando uma rota que itera todos os usuários (a atual resolve só o usuário logado via `requireUserId`) e protegida por secret, não por sessão.
-- **Upload de avatar/capa só funciona local.** `server/utils/userImageUpload.ts` grava em `public/uploads/` do processo Nitro — em serverless (Vercel) o filesystem é efêmero e o arquivo não sobrevive ao próximo cold start/deploy. A UI em `/perfil` já avisa isso. Pra resolver de verdade, trocar por object storage (Vercel Blob é o mais direto).
 
 ## Deploy no Vercel
 
-1. **Banco**: criar um Postgres (Vercel Postgres/Neon via dashboard do projeto no Vercel, ou Neon/Supabase direto) e copiar a connection string.
+1. **Banco**: criar um Postgres (Vercel Postgres/Neon via dashboard do projeto no Vercel, ou Neon/Supabase direto) e copiar a connection string. **Região importa muito**: as Serverless Functions da Vercel no plano Hobby rodam fixas em `iad1` (Washington D.C., EUA) — se o banco ficar numa região distante (ex. `sa-east-1`, São Paulo), toda query cruza o continente ida e volta, e rotas com várias queries numa transação só (`checkin`, `daily-closure`) ficam visivelmente lentas. Já aconteceu aqui: banco em `sa-east-1` deixou o app perceptivelmente lento em produção, resolvido recriando o banco em `us-east-1` (região AWS mais próxima de `iad1`). Se estiver no plano Hobby, crie o banco sempre numa região US East. Só no plano Pro+ dá pra fixar a region da function pra casar com um banco fora dos EUA (`regions` no `vercel.json`).
 2. Rodar `npm run db:migrate` (e `npm run db:seed` uma vez) contra esse banco, com `DATABASE_URL` no `.env` local apontando pra ele — antes de configurar o deploy, pra garantir que o schema já existe em produção.
-3. **Variáveis de ambiente no Vercel** (Project Settings → Environment Variables):
+3. **Vercel Blob**: Storage tab do projeto → Create → Blob. Usado pra upload de foto de perfil/capa (`server/utils/userImageUpload.ts`) — sem isso essas duas rotas falham, o resto do app funciona normal.
+4. **Variáveis de ambiente no Vercel** (Project Settings → Environment Variables):
    - `DATABASE_URL` — a mesma connection string do passo 1.
+   - `BLOB_READ_WRITE_TOKEN` — gerado automaticamente ao criar o Blob store do passo 3 (já vem conectado se criado pela Storage tab).
    - `NUXT_SESSION_PASSWORD` — string aleatória de 32+ caracteres (`openssl rand -hex 32` ou similar); **obrigatório** em produção, o app recusa subir sem isso.
    - `GEMINI_API_KEY` — sem isso o Grimório fica indisponível, mas não bloqueia o resto do app.
-4. Deploy via `vercel` CLI (`vercel link` → `vercel --prod`) ou conectando o repositório GitHub direto no dashboard do Vercel.
-5. Testar em produção: registro → login → check-in → fechamento de dia manual, pra confirmar que o cookie de sessão (`nuxt-auth-utils`) funciona no domínio do Vercel.
+5. Deploy via `vercel` CLI (`vercel link` → `vercel --prod`) ou conectando o repositório GitHub direto no dashboard do Vercel.
+6. Testar em produção: registro → login → check-in → fechamento de dia manual → upload de avatar/capa, pra confirmar que o cookie de sessão (`nuxt-auth-utils`) e o Blob funcionam no domínio do Vercel.
 
 ## Mapa rápido do código
 

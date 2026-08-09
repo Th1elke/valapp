@@ -30,12 +30,26 @@ export type ShopEffect =
   | { kind: 'streak_restore' }
   | { kind: 'rest_day' }
 
+/**
+ * Visual badge treatment for an item's icon in the Loja — `className` is the full Tailwind
+ * background (solid color or gradient) for the icon badge. `solid`/`gradient` are for regular
+ * items (color driven by the item's name when it names one, otherwise a shared per-category
+ * color); `prestige` is reserved for the handful of high-cost "gold sink" cosmetics (see
+ * GAMEPLAY.md) and additionally carries a small `glowClassName` shadow, contained to the badge
+ * itself — never a page-wide halo.
+ */
+export type ItemAccent =
+  | { kind: 'solid'; className: string }
+  | { kind: 'gradient'; className: string }
+  | { kind: 'prestige'; className: string; glowClassName: string }
+
 export interface ShopItem {
   id: ShopItemId
   name: string
   description: string
   cost: number
   effect: ShopEffect
+  accent: ItemAccent
 }
 
 export const MAX_SHIELDS = 3
@@ -83,6 +97,12 @@ export function getEffectiveCost(item: Pick<ShopItem, 'id' | 'cost' | 'effect'>,
   return item.cost
 }
 
+/** Category-level solid accents for items whose name doesn't itself name a color — see ItemAccent. */
+const POTION_ACCENT: ItemAccent = { kind: 'solid', className: 'bg-rose-600' }
+const SHIELD_ACCENT: ItemAccent = { kind: 'solid', className: 'bg-sky-600' }
+const GRIMOIRE_ITEM_ACCENT: ItemAccent = { kind: 'solid', className: 'bg-indigo-600' }
+const TIME_ITEM_ACCENT: ItemAccent = { kind: 'solid', className: 'bg-teal-600' }
+
 export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'potion_small',
@@ -90,6 +110,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Guarda no inventário; use quando quiser para restaurar 20 HP (teto 100)',
     cost: 50,
     effect: { kind: 'inventory', itemId: 'potion_small', grants: 1 },
+    accent: POTION_ACCENT,
   },
   {
     id: 'potion_medium',
@@ -97,6 +118,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Guarda no inventário; use quando quiser para restaurar 50 HP (teto 100)',
     cost: 110,
     effect: { kind: 'inventory', itemId: 'potion_medium', grants: 1 },
+    accent: POTION_ACCENT,
   },
   {
     id: 'potion_large',
@@ -104,6 +126,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Guarda no inventário; use quando quiser para restaurar 100 HP (teto 100)',
     cost: 200,
     effect: { kind: 'inventory', itemId: 'potion_large', grants: 1 },
+    accent: POTION_ACCENT,
   },
   {
     id: 'shield',
@@ -111,6 +134,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: `+1 escudo disponível, até um máximo de ${MAX_SHIELDS}`,
     cost: 80,
     effect: { kind: 'shield' },
+    accent: SHIELD_ACCENT,
   },
   {
     id: 'olho_visao',
@@ -118,6 +142,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Na Batalha do Grimório, elimina 2 alternativas erradas da pergunta atual (efeito 50/50)',
     cost: 60,
     effect: { kind: 'inventory', itemId: 'olho_visao', grants: 1 },
+    accent: GRIMOIRE_ITEM_ACCENT,
   },
   {
     id: 'escudo_cristal',
@@ -125,6 +150,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Se você errar uma pergunta do Grimório, absorve o golpe: sem perda de HP e você tenta de novo',
     cost: 70,
     effect: { kind: 'inventory', itemId: 'escudo_cristal', grants: 1 },
+    accent: GRIMOIRE_ITEM_ACCENT,
   },
   {
     id: 'elixir_erudito',
@@ -132,6 +158,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Dobra o XP (e a Inteligência) ganho ao derrotar o próximo Chefe de Conhecimento',
     cost: 90,
     effect: { kind: 'inventory', itemId: 'elixir_erudito', grants: 1 },
+    accent: GRIMOIRE_ITEM_ACCENT,
   },
   {
     id: 'pena_magica',
@@ -139,6 +166,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Permite colar um texto bem maior que o normal no Grimório para gerar um "Super Chefe"',
     cost: 60,
     effect: { kind: 'inventory', itemId: 'pena_magica', grants: 1 },
+    accent: GRIMOIRE_ITEM_ACCENT,
   },
   {
     id: 'ampulheta_tempo',
@@ -146,6 +174,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Restaura a sequência de um hábito que quebrou no último fechamento de dia',
     cost: 400,
     effect: { kind: 'streak_restore' },
+    accent: TIME_ITEM_ACCENT,
   },
   {
     id: 'ticket_estalagem',
@@ -153,5 +182,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     description: 'Congela o dano de hoje: sem XP extra, mas também sem perda de HP ou de sequência',
     cost: 120,
     effect: { kind: 'rest_day' },
+    accent: TIME_ITEM_ACCENT,
   },
 ]

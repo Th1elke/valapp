@@ -58,6 +58,13 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'General Sans', ui-sans-serif, system-ui, sans-serif;
   }
+
+  /* Edge injects its own reveal-password icon once you start typing, on top of our custom
+     Eye/EyeOff toggle in AuthField.vue — hide the native one so there's only ever one. */
+  input[type='password']::-ms-reveal,
+  input[type='password']::-ms-clear {
+    display: none;
+  }
 }
 
 @layer components {
