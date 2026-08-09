@@ -79,7 +79,7 @@ Scripts úteis: `npm run db:studio` (abre o Drizzle Studio pra inspecionar o ban
 
 1. ~~SQLite, não Postgres.~~ **Resolvido** — schema migrado pra `pg-core`, client usa `@neondatabase/serverless` (driver `neon-serverless`/`Pool` via WebSocket, não o `neon-http`, porque várias rotas fazem transações interativas de verdade — leem, decidem em JS, e escrevem de novo dentro do mesmo `db.transaction()` — e o driver HTTP não suporta esse padrão). A migração não foi só trocar o dialeto: toda a API (~30 arquivos em `server/api/**`) usava a API síncrona do `better-sqlite3` (`.get()`/`.run()`/`.all()`, callbacks de `db.transaction()` não-async) e precisou virar assíncrona (`await`, `db.transaction(async (tx) => ...)`). Ver nota em [docs/02-modelagem-banco.md](docs/02-modelagem-banco.md).
 2. ~~Sem autenticação.~~ **Resolvido** — cadastro/login reais via `nuxt-auth-utils` (sessão selada em cookie, hashing de senha embutido). Cada rota resolve o usuário logado via `requireUserId()` (`server/utils/auth.ts`); `DEMO_USER_ID` (`shared/constants.ts`) só sobrevive como sentinel do `db/seed.ts` pra primeira conta herdar os dados. Ver seção "Autenticação" em [GAMEPLAY.md](GAMEPLAY.md) pra detalhes.
-3. **Sem job agendado real.** O fechamento de dia (`POST /api/daily-closure`) que aplica punição de HP / bônus de dia perfeito é disparado **manualmente** pelo botão "Fechar dia de ontem" no dashboard, não roda sozinho à meia-noite. Em produção isso precisa virar um cron real.
+3. ~~Sem job agendado real.~~ **Resolvido** — `GET /api/cron/daily-closure` roda a mesma lógica de `server/utils/dailyClosure.ts` (extraída pra ser compartilhada com o botão manual) pra todos os usuários, disparado por um Vercel Cron Job (`vercel.json`, `5 3 * * *` = 00:05 America/Sao_Paulo). Protegido pelo header `Authorization: Bearer $CRON_SECRET` que a Vercel envia automaticamente quando essa env var está setada — não usa sessão, já que ninguém está logado quando o cron dispara. Falhas por usuário são isoladas (uma conta com erro não trava o resto do lote). O botão manual continua existindo como fallback: como a lógica é idempotente por `user_id`+`data`, cron e clique não duplicam nada.
 4. **shadcn-vue sem CLI.** O CLI `shadcn-vue add` trava neste ambiente (terminal sem TTY). Os componentes em `app/components/ui/` foram escritos na mão seguindo o padrão exato do registry oficial. Pra adicionar um novo componente, tenta `npx shadcn-vue@latest add <nome>` num terminal interativo normal primeiro; se travar, monta na mão copiando o padrão dos que já existem.
 5. **Fonte não é a Gilroy/Lufga original.** Trocada por **General Sans** (mesma família visual, mas com licença livre confirmada) porque não dava pra garantir licença das fontes originais que foram mostradas como referência. Se você tiver os arquivos `.woff2` licenciados, dá pra trocar via `@nuxt/fonts` com provider `local`.
 6. ~~Git ainda não inicializado.~~ **Resolvido** — repositório criado, primeiro commit feito.
@@ -96,16 +96,10 @@ Em ordem sugerida de prioridade:
 1. ~~Autenticação real~~ — feito, ver "O que já foi feito" e a decisão #2 acima.
 2. ~~Uso de escudo~~ e ~~troca de classe~~ — feito, ver Fase 7 em "O que já foi feito".
 3. ~~Postgres em produção~~ — feito, ver decisão #1 acima.
-4. **Cron real** para o fechamento diário — decisão consciente de deixar como está (botão manual) pro deploy inicial de portfólio; ver seção "Limitações conhecidas em produção" abaixo.
+4. ~~Cron real~~ para o fechamento diário — feito, ver decisão #3 acima.
 5. Modo `semanal` flexível e pausa com datas (itens acima — `dias_customizados` já está pronto).
 6. ~~Deploy~~ — feito, app no ar no Vercel com Postgres (Neon) de produção. Ver "Deploy no Vercel" abaixo pra reproduzir/atualizar.
 7. **Testes automatizados** — tudo até agora foi validado manualmente via requisições HTTP durante o desenvolvimento; não há suíte de testes.
-
-## Limitações conhecidas em produção (deploy de portfólio)
-
-Decisões conscientes pra não bloquear o primeiro deploy — documentadas aqui pra descrição do portfólio, não são bugs:
-
-- **Fechamento de dia manual.** `POST /api/daily-closure` continua disparado pelo botão "Fechar dia de ontem", não por um cron. O Vercel tem Cron Jobs nativos (`vercel.json` → `crons`); dá pra implementar depois criando uma rota que itera todos os usuários (a atual resolve só o usuário logado via `requireUserId`) e protegida por secret, não por sessão.
 
 ## Deploy no Vercel
 
@@ -116,9 +110,10 @@ Decisões conscientes pra não bloquear o primeiro deploy — documentadas aqui 
    - `DATABASE_URL` — a mesma connection string do passo 1.
    - `BLOB_READ_WRITE_TOKEN` — gerado automaticamente ao criar o Blob store do passo 3 (já vem conectado se criado pela Storage tab).
    - `NUXT_SESSION_PASSWORD` — string aleatória de 32+ caracteres (`openssl rand -hex 32` ou similar); **obrigatório** em produção, o app recusa subir sem isso.
+   - `CRON_SECRET` — string aleatória (`openssl rand -hex 32`); protege `GET /api/cron/daily-closure` (ver decisão #3). A Vercel manda esse valor sozinha como `Authorization: Bearer $CRON_SECRET` quando chama o cron — não precisa configurar nada além de setar a env var.
    - `GEMINI_API_KEY` — sem isso o Grimório fica indisponível, mas não bloqueia o resto do app.
-5. Deploy via `vercel` CLI (`vercel link` → `vercel --prod`) ou conectando o repositório GitHub direto no dashboard do Vercel.
-6. Testar em produção: registro → login → check-in → fechamento de dia manual → upload de avatar/capa, pra confirmar que o cookie de sessão (`nuxt-auth-utils`) e o Blob funcionam no domínio do Vercel.
+5. Deploy via `vercel` CLI (`vercel link` → `vercel --prod`) ou conectando o repositório GitHub direto no dashboard do Vercel — o `vercel.json` já registra o cron automaticamente nesse deploy.
+6. Testar em produção: registro → login → check-in → fechamento de dia manual → upload de avatar/capa, pra confirmar que o cookie de sessão (`nuxt-auth-utils`) e o Blob funcionam no domínio do Vercel. O cron em si só dá pra confirmar depois, olhando os logs em Vercel → Cron Jobs (ou testando `GET /api/cron/daily-closure` manualmente com o header `Authorization: Bearer <CRON_SECRET>`).
 
 ## Mapa rápido do código
 

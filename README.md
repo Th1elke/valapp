@@ -33,7 +33,7 @@ cada decisão) estão documentadas em [docs/01-regras-gamificacao.md](docs/01-re
   agendamento por dias fixos da semana, streak com recorde salvo.
 - **XP, nível, HP e ouro**: fórmulas com multiplicador de streak e bônus de classe; fechamento de dia
   aplica punição de HP ou bônus de dia perfeito e trata recaída (perda percentual de XP com teto, não
-  reset total).
+  reset total). Roda sozinho todo dia via Vercel Cron Job, com um botão manual como fallback.
 - **6 classes jogáveis**, cada uma com 3 tiers de evolução e uma mecânica de assinatura própria (ex.:
   Arqueiro acerta um bônus flat de XP a cada 5º check-in em sequência; Ladino tem chance de dobrar XP em
   hábitos de Criatividade; Bardo preserva metade da sequência em vez de zerar). 36 skills compráveis (6
@@ -124,9 +124,6 @@ deploy (incluindo uma pegadinha real de região entre a function da Vercel e o b
 
 ## Limitações conhecidas
 
-- **Fechamento de dia é manual** — o botão "Fechar dia de ontem" no dashboard, não um cron automático à
-  meia-noite. Decisão consciente pro deploy inicial; ver [PROJETO.md](PROJETO.md) para o plano de
-  implementar via Vercel Cron Jobs.
 - **Sem testes automatizados** — tudo validado manualmente via requisições HTTP durante o
   desenvolvimento.
 - **Modo `semanal` flexível de hábito** ("N vezes por semana, qualquer dia") ainda não implementado —

@@ -2,6 +2,7 @@
 import { Coins, Crown, Eye, Feather, Gem, Heart, Hourglass, ShieldPlus, Sparkles, Zap } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { COSMETIC_ITEMS, type CosmeticCategory } from '#shared/cosmetics'
 import { getEffectiveCost, getMaxShields, SHOP_ITEMS, type ItemAccent, type ShopItem, type ShopItemId } from '#shared/economy'
 
@@ -107,16 +108,16 @@ async function buyCosmetic(cosmeticId: string) {
             </div>
           </div>
 
-          <select
-            v-if="item.effect.kind === 'streak_restore'"
-            v-model="selectedHabitId"
-            class="w-full rounded-xl border border-white/10 bg-white/5 p-2 text-sm text-foreground"
-          >
-            <option value="" disabled>Escolha o hábito…</option>
-            <option v-for="h in eligibleHabitsForRestore" :key="h.id" :value="h.id">
-              {{ h.name }} (sequência perdida: {{ h.lastBrokenStreak }})
-            </option>
-          </select>
+          <Select v-if="item.effect.kind === 'streak_restore'" v-model="selectedHabitId">
+            <SelectTrigger>
+              <SelectValue placeholder="Escolha o hábito…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="h in eligibleHabitsForRestore" :key="h.id" :value="h.id">
+                {{ h.name }} (sequência perdida: {{ h.lastBrokenStreak }})
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <p v-if="item.effect.kind === 'streak_restore' && eligibleHabitsForRestore.length === 0" class="text-xs text-muted-foreground">
             Nenhum hábito com sequência recente para restaurar.
           </p>

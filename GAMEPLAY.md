@@ -13,7 +13,7 @@ Convenção geral do projeto: a maior parte das regras/fórmulas puras vive em `
 | Ouro | `gamification.ts` | `habits/[id]/checkin.post.ts`, `daily-closure.post.ts` | `users`, `goldEvents` | header, `index.vue` |
 | Hábitos / check-in | — | `habits/*` | `habits`, `checkIns` | `habitos.vue`, `HabitCard.vue` |
 | Missões | `gamification.ts` (`missionXpReward`/`missionGoldReward`) | `missions/*` | `missions` | `missoes.vue` |
-| Fechamento de dia | `gamification.ts` | `daily-closure.post.ts` | `dailyClosures` | botão "Fechar dia de ontem" em `index.vue` |
+| Fechamento de dia | `gamification.ts` | `daily-closure.post.ts` (manual) + `cron/daily-closure.get.ts` (Vercel Cron) | `dailyClosures` | botão "Fechar dia de ontem" em `index.vue` |
 | Atributos (radar) | — | `user/stats.get.ts` | deriva de `checkIns` + `xpEvents` | `AttributeRadar.vue` |
 | Grimório (IA + batalha) | `gamification.ts` (constantes `GRIMOIRE_*`) | `grimoire/*`, `server/utils/gemini.ts` | `grimoireSessions` | `grimorio.vue` |
 | Loja / itens instantâneos | `economy.ts` | `shop/purchase.post.ts` | `users` (campos `shieldsRemaining`, `restDayDate`) | `loja.vue` |
@@ -84,7 +84,9 @@ Autenticação real via `nuxt-auth-utils` — toda rota resolve o usuário logad
 
 ## Fechamento de Dia (Daily Closure)
 
-- `POST /api/daily-closure` (`server/api/daily-closure.post.ts`) — hoje é disparado manualmente pelo botão "Fechar dia de ontem" no Dashboard, não roda sozinho.
+- A lógica em si (aplicar HP/XP/ouro/recaída pra um usuário+data) vive em `server/utils/dailyClosure.ts` (`closeDayForUser`), compartilhada por dois pontos de entrada:
+  - `POST /api/daily-closure` (`server/api/daily-closure.post.ts`) — disparado manualmente pelo botão "Fechar dia de ontem" no Dashboard, sempre pro usuário logado.
+  - `GET /api/cron/daily-closure` (`server/api/cron/daily-closure.get.ts`) — Vercel Cron Job (`vercel.json`, roda `5 3 * * *` = 00:05 America/Sao_Paulo todo dia), itera todos os usuários e fecha o dia anterior de cada um. Autenticado via `Authorization: Bearer $CRON_SECRET` (header que a própria Vercel envia quando essa env var está setada), não por sessão — não faz sentido pra uma rota que roda sem ninguém logado.
 - Idempotente por usuário+data via unique constraint em `dailyClosures`.
 - Fluxo: acha hábitos ativos sem check-in na data → se tiver Ticket da Estalagem ativo pra essa data, encerra sem aplicar nada (+15 HP extra com Graça da Estalagem/Paladino, +15 HP com Última Canção/Bardo) → senão, zera (ou divide por 2, ver Segunda Voz acima) streak dos hábitos perdidos (salvando snapshot pra Ampulheta) → calcula perda de HP total ou, se dia perfeito, aplica bônus (+5 HP, +15 XP, +10 ouro, ×3 com Tudo ou Nada/Guerreiro ou ×2 com Show Deve Continuar/Bardo) → checa recaída.
 - **Show Deve Continuar** (Bardo, ultimate): dobra o bônus de dia perfeito, no máximo 1×/semana — controlado por `users.lastShowMustGoOnDate` (só dispara de novo se passaram ≥ 7 dias desde o último disparo).
