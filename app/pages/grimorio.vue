@@ -80,11 +80,9 @@ async function submitAnswer() {
     showFeedback.value = true
     if (!result.shieldUsed && !result.dodged) {
       session.value.answers = [...session.value.answers, { questionIndex: qIndex, selectedOption: picked, correct: result.correct }]
-      if (result.battleComplete) {
-        session.value.status = 'concluida'
-        session.value.correctCount = result.correctCount
-        session.value.xpAwarded = result.xpAwarded
-      }
+      // Não marca a sessão como concluída ainda, mesmo se essa foi a 3ª pergunta — isso esconderia
+      // o feedback de acerto/erro dela (battleComplete vira o gate de qual tela mostrar). Só aplica
+      // em nextQuestion(), depois que o usuário já viu o feedback e clicou em "Continuar".
     }
     await Promise.all([refreshUser(), refreshHistory()])
   } finally {
@@ -106,6 +104,11 @@ async function useHint() {
 
 function nextQuestion() {
   const keepsHints = lastResult.value?.shieldUsed || lastResult.value?.dodged
+  if (lastResult.value?.battleComplete && session.value) {
+    session.value.status = 'concluida'
+    session.value.correctCount = lastResult.value.correctCount
+    session.value.xpAwarded = lastResult.value.xpAwarded
+  }
   showFeedback.value = false
   selectedOption.value = null
   lastResult.value = null
