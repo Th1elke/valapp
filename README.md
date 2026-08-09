@@ -1,75 +1,61 @@
-# Nuxt Minimal Starter
+import { and, eq } from 'drizzle-orm'
+import { db } from '~~/db/client'
+import { grimoireSessions, userInventory } from '~~/db/schema'
+import { GRIMOIRE_MAX_LENGTH, GRIMOIRE_MAX_LENGTH_BOOSTED, GRIMOIRE_MIN_LENGTH } from '#shared/gamification'
+import { hasSkill } from '#shared/skills'
+import type { GrimoireSessionDTO } from '#shared/types'
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+async function getInventoryQty(userId: string, itemId: 'pena_magica' | 'elixir_erudito') {
+  const [row] = await db
+    .select()
+    .from(userInventory)
+    .where(and(eq(userInventory.userId, userId), eq(userInventory.itemId, itemId)))
+  return row?.quantity ?? 0
+}
 
-## Setup
+export default defineEventHandler(async (event): Promise<GrimoireSessionDTO> => {
+  const userId = await requireUserId(event)
+  const body = await readBody(event)
+  const content = typeof body?.content === 'string' ? body.content.trim() : ''
+  const useElixir = body?.useElixir === true
+  const apostaAlta = body?.apostaAlta === true
 
-Make sure to install dependencies:
+  if (content.length < GRIMOIRE_MIN_LENGTH) {
+    throw createError({ statusCode: 400, statusMessage: `Cole pelo menos ${GRIMOIRE_MIN_LENGTH} caracteres de conteúdo.` })
+  }
 
-```bash
-# npm
-npm install
+  const penaQty = await getInventoryQty(userId, 'pena_magica')
+  const usePena = penaQty > 0 && content.length > GRIMOIRE_MAX_LENGTH
+  const effectiveMaxLength = usePena ? GRIMOIRE_MAX_LENGTH_BOOSTED : GRIMOIRE_MAX_LENGTH
 
-# pnpm
-pnpm install
+  if (content.length > effectiveMaxLength) {
+    throw createError({ statusCode: 400, statusMessage: `Conteúdo muito longo (máximo ${effectiveMaxLength} caracteres).` })
+  }
 
-# yarn
-yarn install
+  const elixirQty = await getInventoryQty(userId, 'elixir_erudito')
+  if (useElixir && elixirQty <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Você não tem Elixir do Erudito.' })
+  }
 
-# bun
-bun install
-```
+  const { summary, quiz } = await generateGrimoireQuiz(content)
 
-## Development Server
+  const session = await db.transaction(async (tx) => {
+    const skills = await getUnlockedSkillIds(tx, userId)
+    if (usePena) await consumeInventoryItem(tx, userId, 'pena_magica', skills)
+    if (useElixir) await consumeInventoryItem(tx, userId, 'elixir_erudito', skills)
+    const [row] = await tx
+      .insert(grimoireSessions)
+      .values({
+        userId,
+        content,
+        summary,
+        quiz,
+        xpBoosted: useElixir,
+        apostaAltaUsada: apostaAlta && hasSkill(skills, 'ladino_aposta_alta'),
+      })
+      .returning()
+    return row!
+  })
 
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+  return toSessionDTO(session)
+})
