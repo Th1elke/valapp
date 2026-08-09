@@ -85,6 +85,10 @@ export function getAvailableSP(level: number, unlockedCount: number): number {
   return Math.max(0, level - 4) - unlockedCount
 }
 
+/** Class change rules (docs section 4.3): once per 90 days, costing 30% of current XP. */
+export const CLASS_CHANGE_COOLDOWN_DAYS = 90
+export const CLASS_CHANGE_XP_COST_PERCENT = 0.3
+
 const CLASS_BONUS_CATEGORY: Record<PlayerClass, HabitCategory | null> = {
   guerreiro: 'fisico',
   mago: 'mente',

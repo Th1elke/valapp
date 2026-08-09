@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { users } from '~~/db/schema'
+import { weekStartStr } from '#shared/date'
 
 /** Sentinel written by `db/seed.ts` for the pre-auth demo account — see claim logic below. */
 const UNCLAIMED_PASSWORD_HASH = 'no-auth-yet'
@@ -35,12 +36,14 @@ export default defineEventHandler(async (event) => {
     // loser just finds 0 rows matched and falls through to a normal insert below.
     const claimed = db
       .update(users)
-      .set({ email, passwordHash, name, updatedAt: new Date().toISOString() })
+      .set({ email, passwordHash, name, shieldWeekStart: weekStartStr(), updatedAt: new Date().toISOString() })
       .where(eq(users.passwordHash, UNCLAIMED_PASSWORD_HASH))
       .returning(RETURNING_COLUMNS)
       .get()
 
-    user = claimed ?? db.insert(users).values({ email, passwordHash, name }).returning(RETURNING_COLUMNS).get()
+    user =
+      claimed ??
+      db.insert(users).values({ email, passwordHash, name, shieldWeekStart: weekStartStr() }).returning(RETURNING_COLUMNS).get()
   } catch (err) {
     // Two concurrent requests can both pass the `existing` check above for the same e-mail;
     // the unique index is the real guard, this just turns that into a friendly error.

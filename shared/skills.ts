@@ -165,8 +165,7 @@ export const SKILLS: Skill[] = [
     pathLabel: 'Guardião',
     tier: 2,
     name: 'Baluarte',
-    description:
-      'Quando um Escudo quebra protegendo um hábito, você ganha o XP base daquele hábito. (Depende do uso real de escudo pra proteger um hábito, que ainda não existe no app — fica registrado pra quando essa mecânica for construída.)',
+    description: 'Quando um Escudo protege a sequência de um hábito, você ganha o XP base daquele hábito.',
     cost: 3,
   },
   {

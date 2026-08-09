@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
-import { checkIns, dailyClosures, goldEvents, habits, hpEvents, users, xpEvents } from '~~/db/schema'
+import { checkIns, dailyClosures, goldEvents, habits, hpEvents, shieldUses, users, xpEvents } from '~~/db/schema'
 import {
+  DIFFICULTY_XP,
   HP_MAX,
   HP_REGEN_PERFECT_DAY,
   PERFECT_DAY_GOLD_BONUS,
@@ -79,9 +80,22 @@ export default defineEventHandler(async (event) => {
     )
     const perfectDay = eligibleHabits.length > 0 && missed.length === 0
 
+    // Escudo (docs 5.2): reservado via POST /api/user/shield, aplicado aqui no fechamento do dia
+    // que ele protege. `protecao_dia` cancela a perda de HP do dia inteiro; `protecao_streak`
+    // preserva a sequência de um hábito específico (conta como cumprido, mas sem XP/ouro).
+    const shieldUse = tx
+      .select()
+      .from(shieldUses)
+      .where(and(eq(shieldUses.userId, userId), eq(shieldUses.protectedDate, closureDate)))
+      .get()
+    const dayShielded = shieldUse?.targetType === 'protecao_dia'
+    const protectedHabitId = shieldUse?.targetType === 'protecao_streak' ? shieldUse.habitId : null
+    const preservedHabit = protectedHabitId ? missed.find((h) => h.id === protectedHabitId) : undefined
+    const punishableMissed = missed.filter((h) => h.id !== protectedHabitId)
+
     // Segunda Voz (Bardo): sequência quebrada vira metade em vez de zero — Social por padrão,
     // qualquer categoria com Refrão.
-    for (const habit of missed) {
+    for (const habit of punishableMissed) {
       const segundaVoz =
         user.playerClass === 'bardo' && user.level >= 5 && (habit.category === 'social' || hasSkill(skills, 'bardo_refrao'))
       const newStreakCount = segundaVoz ? Math.floor(habit.streakCount / 2) : 0
@@ -97,7 +111,30 @@ export default defineEventHandler(async (event) => {
         .run()
     }
 
-    const totalHpLoss = missed.reduce((sum, h) => sum + computeHpLoss(h.difficulty, user.playerClass, user.level, skills), 0)
+    // Baluarte (Paladino): quando o escudo protege um hábito, credita o XP base dele — igual ao
+    // Tiro Certeiro (Arqueiro), um flat da dificuldade, sem multiplicador de streak/classe.
+    let baluarteXp = 0
+    if (preservedHabit) {
+      const newStreakCount = preservedHabit.streakCount + 1
+      tx.update(habits)
+        .set({
+          streakCount: newStreakCount,
+          longestStreak: Math.max(preservedHabit.longestStreak, newStreakCount),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(habits.id, preservedHabit.id))
+        .run()
+
+      if (hasSkill(skills, 'paladino_baluarte')) {
+        baluarteXp = DIFFICULTY_XP[preservedHabit.difficulty]
+      }
+    }
+
+    const totalHpLossFromHabits = punishableMissed.reduce(
+      (sum, h) => sum + computeHpLoss(h.difficulty, user.playerClass, user.level, skills),
+      0,
+    )
+    const totalHpLoss = dayShielded ? 0 : totalHpLossFromHabits
 
     const tudoOuNada = hasSkill(skills, 'guerreiro_tudo_ou_nada')
     // Show Deve Continuar (Bardo, ultimate): dobra o bônus de dia perfeito, no máximo 1x por semana.
@@ -111,7 +148,7 @@ export default defineEventHandler(async (event) => {
     const perfectGoldBonus = perfectDay ? PERFECT_DAY_GOLD_BONUS * perfectMultiplier : 0
 
     let hp = perfectDay ? Math.min(HP_MAX, user.hp + HP_REGEN_PERFECT_DAY) : Math.max(0, user.hp - totalHpLoss)
-    let xp = perfectDay ? user.xp + perfectXpBonus : user.xp
+    let xp = (perfectDay ? user.xp + perfectXpBonus : user.xp) + baluarteXp
     const gold = perfectDay ? user.gold + perfectGoldBonus : user.gold
     let level = levelForXp(xp)
     let relapsed = false
@@ -128,19 +165,24 @@ export default defineEventHandler(async (event) => {
       hp = getRelapseHpRestore(skills)
       tx.insert(hpEvents).values({ userId, type: 'reset_recaida', amount: hp - user.hp, hpAfter: hp }).run()
     } else {
+      const hpEventType = perfectDay
+        ? 'regen_dia_perfeito'
+        : dayShielded && totalHpLossFromHabits > 0
+          ? 'escudo_usado'
+          : 'habito_nao_cumprido'
       tx.insert(hpEvents)
-        .values({
-          userId,
-          type: perfectDay ? 'regen_dia_perfeito' : 'habito_nao_cumprido',
-          amount: hp - user.hp,
-          hpAfter: hp,
-        })
+        .values({ userId, type: hpEventType, amount: hp - user.hp, hpAfter: hp })
         .run()
     }
 
     if (perfectDay) {
       tx.insert(xpEvents).values({ userId, type: 'dia_perfeito', amount: perfectXpBonus, balanceAfter: xp }).run()
       tx.insert(goldEvents).values({ userId, type: 'dia_perfeito', amount: perfectGoldBonus, balanceAfter: gold }).run()
+    }
+    if (baluarteXp > 0) {
+      tx.insert(xpEvents)
+        .values({ userId, habitId: preservedHabit!.id, type: 'baluarte', amount: baluarteXp, balanceAfter: xp })
+        .run()
     }
 
     tx.update(users)

@@ -32,6 +32,7 @@ export const xpEventTypes = [
   'grimorio',
   'tiro_certeiro',
   'golpe_duplo',
+  'baluarte',
 ] as const
 export const hpEventTypes = [
   'habito_nao_cumprido',

@@ -1,11 +1,18 @@
-import type { DailyClosureResultDTO, PlayerClass, UserStateDTO } from '#shared/types'
+import type { DailyClosureResultDTO, PlayerClass, ShieldTargetType, UserStateDTO } from '#shared/types'
 
 export function useUserState() {
   return useFetch<UserStateDTO>('/api/user', { key: 'user' })
 }
 
 export function chooseClass(playerClass: PlayerClass) {
-  return $fetch('/api/user/class', { method: 'POST', body: { playerClass } })
+  return $fetch<UserStateDTO>('/api/user/class', { method: 'POST', body: { playerClass } })
+}
+
+export function useShield(targetType: ShieldTargetType, opts?: { habitId?: string; date?: string }) {
+  return $fetch<UserStateDTO>('/api/user/shield', {
+    method: 'POST',
+    body: { targetType, habitId: opts?.habitId, date: opts?.date },
+  })
 }
 
 export function runDailyClosure(date?: string) {

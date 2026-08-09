@@ -5,6 +5,7 @@ export type HabitDifficulty = 'facil' | 'medio' | 'dificil'
 export type HabitFrequency = 'diaria' | 'semanal' | 'dias_customizados'
 export type HabitStatus = 'ativo' | 'pausado' | 'arquivado'
 export type PlayerClass = 'guerreiro' | 'mago' | 'paladino' | 'arqueiro' | 'ladino' | 'bardo'
+export type ShieldTargetType = 'protecao_dia' | 'protecao_streak'
 export type MissionStatus = 'ativa' | 'concluida' | 'cancelada'
 export type GrimoireStatus = 'gerado' | 'concluida'
 
@@ -60,6 +61,8 @@ export interface UserStateDTO {
   hp: number
   gold: number
   playerClass: PlayerClass | null
+  classChosenAt: string | null
+  lastClassChangeAt: string | null
   shieldsRemaining: number
   xpFloor: number
   xpCeil: number

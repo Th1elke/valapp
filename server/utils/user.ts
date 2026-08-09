@@ -35,6 +35,8 @@ export function toUserStateDTO(user: typeof users.$inferSelect, tx: Queryable = 
     hp: user.hp,
     gold: user.gold,
     playerClass: user.playerClass,
+    classChosenAt: user.classChosenAt,
+    lastClassChangeAt: user.lastClassChangeAt,
     shieldsRemaining: user.shieldsRemaining,
     xpFloor: xpForLevel(user.level),
     xpCeil: xpForLevel(user.level + 1),

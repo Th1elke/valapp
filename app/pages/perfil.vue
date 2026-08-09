@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Award, Camera, Coins, Flame, Heart, Music2, Shield, Sparkles, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { BORDERS, THEMES, TITLES, type CosmeticCategory } from '#shared/cosmetics'
 import { getMaxShields } from '#shared/economy'
-import { getClassInfo } from '#shared/gamification'
-import type { PlayerClass } from '#shared/types'
+import { CLASS_CHANGE_COOLDOWN_DAYS, CLASS_CHANGE_XP_COST_PERCENT, getClassInfo } from '#shared/gamification'
+import type { PlayerClass, ShieldTargetType } from '#shared/types'
 
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: habits } = useHabits()
@@ -105,6 +106,66 @@ async function pickClass(playerClass: PlayerClass) {
     await refreshUser()
   } finally {
     choosing.value = false
+  }
+}
+
+// Escudo (docs 5.2): protege o dia de hoje inteiro, ou a sequência de um hábito específico.
+const shieldTargetType = ref<ShieldTargetType>('protecao_dia')
+const shieldHabitId = ref('')
+const usingShield = ref(false)
+const shieldError = ref('')
+const shieldSuccess = ref('')
+const activeHabitsForShield = computed(() => (habits.value ?? []).filter((h) => h.status === 'ativo'))
+
+async function activateShield() {
+  if (shieldTargetType.value === 'protecao_streak' && !shieldHabitId.value) {
+    shieldError.value = 'Escolha um hábito para proteger.'
+    return
+  }
+  usingShield.value = true
+  shieldError.value = ''
+  shieldSuccess.value = ''
+  try {
+    await useShield(shieldTargetType.value, { habitId: shieldHabitId.value || undefined })
+    await refreshUser()
+    shieldSuccess.value =
+      shieldTargetType.value === 'protecao_dia'
+        ? 'Escudo ativado — hoje não perde HP se algum hábito ficar pendente.'
+        : 'Escudo ativado — a sequência desse hábito fica protegida hoje.'
+    shieldHabitId.value = ''
+  } catch (err) {
+    shieldError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível usar o escudo.'
+  } finally {
+    usingShield.value = false
+  }
+}
+
+// Troca de classe (docs seção 4.3): 1x a cada 90 dias, custando 30% do XP atual.
+const otherClassOptions = computed(() => classOptions.filter((o) => o.value !== user.value?.playerClass))
+const classChangeCooldownDaysLeft = computed(() => {
+  if (!user.value) return 0
+  const lastChange = user.value.lastClassChangeAt ?? user.value.classChosenAt
+  if (!lastChange) return 0
+  const daysSince = (Date.now() - new Date(lastChange).getTime()) / 86400000
+  return Math.max(0, Math.ceil(CLASS_CHANGE_COOLDOWN_DAYS - daysSince))
+})
+const canChangeClass = computed(() => !!user.value?.playerClass && classChangeCooldownDaysLeft.value === 0)
+const classChangeCost = computed(() => (user.value ? Math.round(user.value.xp * CLASS_CHANGE_XP_COST_PERCENT) : 0))
+const changingClass = ref(false)
+const classChangeError = ref('')
+const showClassChange = ref(false)
+
+async function changeClass(playerClass: PlayerClass) {
+  changingClass.value = true
+  classChangeError.value = ''
+  try {
+    await chooseClass(playerClass)
+    await refreshUser()
+    showClassChange.value = false
+  } catch (err) {
+    classChangeError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível trocar de classe.'
+  } finally {
+    changingClass.value = false
   }
 }
 
@@ -247,6 +308,84 @@ const milestones = computed(() => [
           </div>
         </CardContent>
       </Card>
+    </div>
+
+    <div class="glass-panel space-y-4 p-5">
+      <div>
+        <h2 class="font-semibold">Usar escudo</h2>
+        <p class="text-sm text-muted-foreground">
+          Protege antes do fechamento do dia: cancela a perda de HP do dia inteiro, ou preserva a sequência de um hábito específico
+          (sem gerar XP). No máximo 1 uso por semana, mesmo com escudos guardados.
+        </p>
+      </div>
+      <div v-if="user.shieldsRemaining === 0" class="text-sm text-muted-foreground">
+        Sem escudos disponíveis agora — renova toda segunda-feira, ou compre mais na Taverna.
+      </div>
+      <template v-else>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
+            :class="shieldTargetType === 'protecao_dia' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
+            @click="shieldTargetType = 'protecao_dia'"
+          >
+            Proteger o dia de hoje
+          </button>
+          <button
+            type="button"
+            class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
+            :class="shieldTargetType === 'protecao_streak' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
+            @click="shieldTargetType = 'protecao_streak'"
+          >
+            Proteger sequência de um hábito
+          </button>
+        </div>
+        <select
+          v-if="shieldTargetType === 'protecao_streak'"
+          v-model="shieldHabitId"
+          class="glass-inset w-full rounded-xl border-0 bg-transparent px-3 py-2 text-sm"
+        >
+          <option value="" disabled>Escolha um hábito</option>
+          <option v-for="habit in activeHabitsForShield" :key="habit.id" :value="habit.id">
+            {{ habit.name }} (sequência: {{ habit.streakCount }})
+          </option>
+        </select>
+        <Button size="sm" class="rounded-full" :disabled="usingShield" @click="activateShield">
+          {{ usingShield ? 'Ativando…' : 'Usar escudo' }}
+        </Button>
+        <p v-if="shieldError" class="text-sm text-red-400">{{ shieldError }}</p>
+        <p v-if="shieldSuccess" class="text-sm text-emerald-400">{{ shieldSuccess }}</p>
+      </template>
+    </div>
+
+    <div v-if="user.playerClass" class="glass-panel space-y-4 p-5">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="font-semibold">Trocar de classe</h2>
+          <p class="text-sm text-muted-foreground">
+            <template v-if="canChangeClass">Custa {{ classChangeCost }} XP (30% do XP atual), uma vez a cada 90 dias.</template>
+            <template v-else>Disponível em {{ classChangeCooldownDaysLeft }} dia(s) — última troca há menos de 90 dias.</template>
+          </p>
+        </div>
+        <Button v-if="canChangeClass" variant="ghost" size="sm" @click="showClassChange = !showClassChange">
+          {{ showClassChange ? 'Cancelar' : 'Trocar' }}
+        </Button>
+      </div>
+      <div v-if="showClassChange && canChangeClass" class="grid gap-3 sm:grid-cols-3">
+        <button
+          v-for="option in otherClassOptions"
+          :key="option.value"
+          type="button"
+          :disabled="changingClass"
+          class="glass-inset glass-panel-hover flex flex-col items-center gap-2 rounded-2xl p-4 text-center disabled:opacity-50"
+          @click="changeClass(option.value)"
+        >
+          <component :is="option.icon" :size="24" />
+          <p class="font-medium">{{ option.label }}</p>
+          <p class="text-xs text-muted-foreground">{{ option.description }}</p>
+        </button>
+      </div>
+      <p v-if="classChangeError" class="text-sm text-red-400">{{ classChangeError }}</p>
     </div>
 
     <div v-if="stats" class="glass-panel p-5">
