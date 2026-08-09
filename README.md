@@ -143,9 +143,4 @@ deploy (incluindo uma pegadinha real de região entre a function da Vercel e o b
 ## Autor
 
 [Gustavo Thielke](https://github.com/Th1elke)
-=======
 
-
-  return toSessionDTO(session)
-})
->>>>>>> b3d44227e83fdaa0a8b4b520ec831896e5572c77
