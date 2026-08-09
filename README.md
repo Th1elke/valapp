@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://valapp-two.vercel.app"><strong>🔗 Demo ao vivo</strong></a>
+  <a href="https://valpp.vercel.app/inicio"><strong>🔗 Demo ao vivo</strong></a>
 </p>
 
 ---
