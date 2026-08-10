@@ -2,7 +2,6 @@
 import { BookOpen, FlaskConical, LayoutDashboard, ListChecks, ScrollText, Store, UserRound } from 'lucide-vue-next'
 
 const route = useRoute()
-const { data: user } = useUserState()
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -17,14 +16,12 @@ const nav = [
 
 <template>
   <aside class="sticky top-0 hidden h-screen w-20 shrink-0 flex-col items-center gap-2 border-r border-white/10 bg-card/90 py-6 shadow-[8px_0_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:flex">
-    <NuxtLink to="/perfil" title="Perfil" class="mb-4">
-      <ClassAvatar
-        :player-class="user?.playerClass ?? null"
-        :level="user?.level ?? 1"
-        :border-id="user?.equippedAvatarBorder"
-        :avatar-url="user?.avatarUrl"
-        size="sm"
-      />
+    <NuxtLink
+      to="/"
+      title="Val"
+      class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-base font-bold tracking-tight text-primary"
+    >
+      Val
     </NuxtLink>
     <NuxtLink
       v-for="item in nav"
