@@ -16,9 +16,9 @@ const nav = [
 
 <template>
   <aside class="sticky top-0 hidden h-screen w-20 shrink-0 flex-col items-center gap-2 border-r border-white/10 bg-card/90 py-6 shadow-[8px_0_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:flex">
-    <NuxtLink to="/" title="Val" class="mb-4 flex h-11 w-11 items-center justify-center">
+    <div class="mb-4 flex h-11 w-11 items-center justify-center">
       <img src="/img/logo-val.png" alt="Val" class="h-9 w-9" />
-    </NuxtLink>
+    </div>
     <NuxtLink
       v-for="item in nav"
       :key="item.to"
