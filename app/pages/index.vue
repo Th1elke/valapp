@@ -10,6 +10,7 @@ import { todayStr } from '#shared/date'
 import { getClassInfo } from '#shared/gamification'
 import { isHabitScheduled } from '#shared/habitSchedule'
 import type { DailyClosureResultDTO } from '#shared/types'
+import { containsEmoji, MAX_NAME_LENGTH } from '#shared/validation'
 
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: habits, refresh: refreshHabits } = useHabits()
@@ -62,6 +63,7 @@ async function saveName() {
     editingName.value = false
     return
   }
+  if (containsEmoji(trimmed)) return
   savingName.value = true
   try {
     await updateUserName(trimmed)
@@ -109,7 +111,7 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
                   ref="nameInput"
                   v-model="nameDraft"
                   class="h-8 max-w-[10rem] py-1"
-                  maxlength="30"
+                  :maxlength="MAX_NAME_LENGTH"
                   :disabled="savingName"
                   @keyup.enter="saveName"
                   @keyup.escape="editingName = false"

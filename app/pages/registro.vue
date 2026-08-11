@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, Lock, Mail, User } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { containsEmoji, MAX_NAME_LENGTH, MAX_PASSWORD_LENGTH } from '#shared/validation'
 
 definePageMeta({ layout: 'auth' })
 
@@ -18,6 +19,14 @@ async function submit() {
   error.value = ''
   if (password.value !== confirmPassword.value) {
     error.value = 'As senhas não coincidem.'
+    return
+  }
+  if (containsEmoji(name.value)) {
+    error.value = 'O nome não pode conter emojis.'
+    return
+  }
+  if (containsEmoji(password.value)) {
+    error.value = 'A senha não pode conter emojis.'
     return
   }
 
@@ -38,7 +47,15 @@ async function submit() {
 <template>
   <AuthCard title="Criar conta" subtitle="Sua rotina vira XP a partir de agora.">
     <form class="space-y-4" @submit.prevent="submit">
-      <AuthField v-model="name" label="Nome" :icon="User" autocomplete="name" placeholder="Como te chamamos" required />
+      <AuthField
+        v-model="name"
+        label="Nome"
+        :icon="User"
+        autocomplete="name"
+        placeholder="Como te chamamos"
+        required
+        :maxlength="MAX_NAME_LENGTH"
+      />
       <AuthField v-model="email" label="E-mail" :icon="Mail" type="email" autocomplete="email" placeholder="seu@email.com" required />
       <AuthField
         v-model="password"
@@ -49,6 +66,7 @@ async function submit() {
         placeholder="Mín. 8 caracteres"
         required
         minlength="8"
+        :maxlength="MAX_PASSWORD_LENGTH"
       />
       <AuthField
         v-model="confirmPassword"
@@ -59,6 +77,7 @@ async function submit() {
         placeholder="Repita a senha"
         required
         minlength="8"
+        :maxlength="MAX_PASSWORD_LENGTH"
       />
       <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
       <Button type="submit" class="flex w-full items-center justify-center gap-2 rounded-full" :disabled="submitting">

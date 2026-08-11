@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '~~/db/client'
 import { users } from '~~/db/schema'
 import { weekStartStr } from '#shared/date'
+import { containsEmoji, MAX_NAME_LENGTH, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '#shared/validation'
 
 /** Sentinel written by `db/seed.ts` for the pre-auth demo account — see claim logic below. */
 const UNCLAIMED_PASSWORD_HASH = 'no-auth-yet'
@@ -21,8 +22,18 @@ export default defineEventHandler(async (event) => {
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
 
   if (!email || !email.includes('@')) throw createError({ statusCode: 400, statusMessage: 'E-mail inválido.' })
-  if (password.length < 8) throw createError({ statusCode: 400, statusMessage: 'A senha precisa ter pelo menos 8 caracteres.' })
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw createError({ statusCode: 400, statusMessage: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` })
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    throw createError({ statusCode: 400, statusMessage: `A senha pode ter no máximo ${MAX_PASSWORD_LENGTH} caracteres.` })
+  }
+  if (containsEmoji(password)) throw createError({ statusCode: 400, statusMessage: 'A senha não pode conter emojis.' })
   if (!name) throw createError({ statusCode: 400, statusMessage: 'Nome é obrigatório.' })
+  if (name.length > MAX_NAME_LENGTH) {
+    throw createError({ statusCode: 400, statusMessage: `Nome muito longo (máximo ${MAX_NAME_LENGTH} caracteres).` })
+  }
+  if (containsEmoji(name)) throw createError({ statusCode: 400, statusMessage: 'O nome não pode conter emojis.' })
 
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email))
   if (existing) throw emailTaken()
