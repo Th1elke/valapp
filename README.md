@@ -139,3 +139,4 @@ deploy (incluindo uma pegadinha real de região entre a function da Vercel e o b
 ## Autor
 
 [Gustavo Thielke](https://github.com/Th1elke)
+[Gabriel Ferrazza](https://github.com/vgabzx)
