@@ -136,7 +136,8 @@ deploy (incluindo uma pegadinha real de região entre a function da Vercel e o b
 - [docs/01-regras-gamificacao.md](docs/01-regras-gamificacao.md) — fonte da verdade de todas as regras de design
 - [docs/02-modelagem-banco.md](docs/02-modelagem-banco.md) — diagrama ER e explicação de cada tabela
 
-## Autor
+## Autores
 
 [Gustavo Thielke](https://github.com/Th1elke)
+
 [Gabriel Ferrazza](https://github.com/vgabzx)
