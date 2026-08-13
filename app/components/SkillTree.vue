@@ -21,6 +21,16 @@ const paths = computed(() => {
   }))
 })
 
+const treeMaxed = computed(() => {
+  if (!user.value?.playerClass) return false
+  const classSkills = SKILLS.filter((s) => s.playerClass === user.value!.playerClass)
+  return classSkills.every((s) => user.value!.unlockedSkills.includes(s.id))
+})
+
+function pathComplete(skills: Skill[]) {
+  return skills.every((s) => user.value!.unlockedSkills.includes(s.id))
+}
+
 function state(skill: Skill): 'owned' | 'locked' | 'available' {
   if (!user.value) return 'locked'
   if (user.value.unlockedSkills.includes(skill.id)) return 'owned'
@@ -52,7 +62,8 @@ async function unlock(skill: Skill) {
         <h2 class="font-semibold">Árvore de Habilidades</h2>
         <p class="text-sm text-muted-foreground">1 SP a cada nível a partir do 5 — gaste nos dois caminhos livremente</p>
       </div>
-      <Badge variant="success">{{ user.availableSkillPoints }} SP disponíveis</Badge>
+      <Badge v-if="!treeMaxed" variant="success">{{ user.availableSkillPoints }} SP disponíveis</Badge>
+      <Badge v-else variant="secondary">Árvore completa · {{ user.availableSkillPoints }} SP guardados</Badge>
     </div>
 
     <div v-if="rootPassive" class="glass-inset flex items-center gap-3 rounded-2xl p-3">
@@ -69,10 +80,13 @@ async function unlock(skill: Skill) {
 
     <div class="grid gap-8 sm:grid-cols-2">
       <div v-for="group in paths" :key="group.path">
-        <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</h3>
+        <div class="mb-4 flex items-center justify-center gap-2">
+          <h3 class="text-center text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</h3>
+          <Badge v-if="pathComplete(group.skills)" variant="success" class="px-1.5 py-0 text-[10px]">Completo</Badge>
+        </div>
         <div class="flex flex-col items-center">
           <template v-for="(skill, i) in group.skills" :key="skill.id">
-            <div v-if="i > 0" class="h-6 w-0.5 shrink-0" :class="state(group.skills[i - 1]) !== 'locked' ? 'bg-primary/60' : 'bg-white/10'" />
+            <div v-if="i > 0" class="h-6 w-1 shrink-0 rounded-full" :class="state(group.skills[i - 1]) !== 'locked' ? 'bg-primary/60' : 'bg-white/10'" />
             <div class="flex w-full max-w-[220px] flex-col items-center gap-2 pb-6 text-center last:pb-0">
               <div
                 class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 transition-all"
