@@ -43,6 +43,10 @@ cada decisão) estão documentadas em [docs/01-regras-gamificacao.md](docs/01-re
   fechamento de dia.
 - **Atributos**: XP por categoria de hábito vira um radar de RPG (STR/INT/WIS/CHA/DEX).
 - **Missões avulsas**: tarefas de conclusão única, valem 3× a recompensa de um hábito normal.
+- **Integração com Google Classroom**: vincula a conta Google pelo perfil e importa as tarefas ativas
+  das turmas como missões (`standby`, sem XP até você definir a dificuldade). A partir daí a missão
+  entra no fluxo normal — mesma recompensa e mesma tela de conclusão de uma missão criada na mão. Não
+  sincroniza notas nem envios, só o enunciado e o prazo.
 - **Loja (Taverna)**: poções de cura, itens de batalha do Grimório, e cosméticos (títulos, bordas de
   avatar, temas de cor) — cada item com sua própria identidade visual (cor derivada do nome, ou uma
   categoria consistente quando o nome não sugere cor nenhuma).
@@ -63,6 +67,7 @@ cada decisão) estão documentadas em [docs/01-regras-gamificacao.md](docs/01-re
 | Autenticação | [nuxt-auth-utils](https://github.com/atinux/nuxt-auth-utils) |
 | IA | [Gemini API](https://aistudio.google.com/) (`@google/genai`) — geração de resumo + quiz do Grimório |
 | Upload de imagem | [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) |
+| Integração externa | Google OAuth + [Classroom API](https://developers.google.com/classroom) — importa tarefas de turmas como missões |
 | Deploy | [Vercel](https://vercel.com/) |
 
 ## Rodando localmente
@@ -97,6 +102,7 @@ e isoladas.
 | `NUXT_SESSION_PASSWORD` | em produção | String de 32+ caracteres pra selar o cookie de sessão; gerada automaticamente em dev se faltar |
 | `GEMINI_API_KEY` | não | Chave grátis em [aistudio.google.com/apikey](https://aistudio.google.com/apikey); sem ela só o Grimório fica indisponível, o resto do app funciona normal |
 | `BLOB_READ_WRITE_TOKEN` | não | Storage tab do projeto na Vercel → Create → Blob; sem ela só upload de avatar/capa falha |
+| `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `NUXT_OAUTH_GOOGLE_CLIENT_SECRET` | não | Credencial OAuth (Google Cloud Console → Web application), redirect URI `{origin}/auth/google`; sem elas só a vinculação com Google Classroom fica indisponível |
 
 Scripts úteis: `npm run db:studio` (Drizzle Studio, inspeciona o banco visualmente), `npm run db:generate`
 (gera uma nova migration depois de editar `db/schema.ts`).
@@ -108,7 +114,8 @@ docs/                     regras de gamificação e modelagem do banco
 shared/                   código isomórfico (client + server): types, fórmulas de XP/HP/ouro, catálogos
 db/                       schema Drizzle, client, migrations, seed
 server/api/               rotas da API (auth, hábitos, check-in, missões, loja, grimório, usuário)
-server/utils/             helpers do backend (auth, datas, integração Gemini, upload de imagem)
+server/routes/auth/       callback do OAuth do Google (vinculação de conta, fora do padrão /api)
+server/utils/             helpers do backend (auth, datas, integração Gemini, Classroom, upload de imagem)
 app/pages/                as telas (login, registro, dashboard, hábitos, missões, grimório, loja, perfil)
 app/components/           componentes Vue, incluindo app/components/ui/ (shadcn-vue montado na mão)
 app/composables/          hooks de fetch/mutação usados pelas páginas
