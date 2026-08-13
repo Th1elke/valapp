@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Lock, Sparkles } from 'lucide-vue-next'
+import { Check, Lock, Sparkles, Star } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { ROOT_PASSIVES, SKILLS, getPrerequisiteSkillId, type Skill } from '#shared/skills'
 
@@ -56,7 +56,7 @@ async function unlock(skill: Skill) {
     </div>
 
     <div v-if="rootPassive" class="glass-inset flex items-center gap-3 rounded-2xl p-3">
-      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/50">
+      <div class="glow-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/50">
         <Sparkles :size="16" class="text-white" />
       </div>
       <div class="min-w-0 flex-1">
@@ -67,41 +67,41 @@ async function unlock(skill: Skill) {
 
     <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <div v-for="group in paths" :key="group.path" class="space-y-2">
-        <h3 class="text-sm font-medium text-muted-foreground">{{ group.label }}</h3>
-        <div class="space-y-2">
-          <div
-            v-for="skill in group.skills"
-            :key="skill.id"
-            class="glass-inset rounded-2xl border p-3"
-            :class="{
-              'border-primary': state(skill) === 'owned',
-              'border-white/5 opacity-50': state(skill) === 'locked',
-              'border-white/10': state(skill) === 'available',
-            }"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <p class="flex items-center gap-1.5 text-sm font-medium">
-                  <Check v-if="state(skill) === 'owned'" :size="14" class="shrink-0 text-emerald-400" />
-                  <Lock v-else-if="state(skill) === 'locked'" :size="14" class="shrink-0 text-muted-foreground" />
-                  {{ skill.name }}
-                </p>
-                <p class="mt-1 text-xs text-muted-foreground">{{ skill.description }}</p>
+    <div class="grid gap-8 sm:grid-cols-2">
+      <div v-for="group in paths" :key="group.path">
+        <h3 class="mb-4 text-center text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</h3>
+        <div class="flex flex-col items-center">
+          <template v-for="(skill, i) in group.skills" :key="skill.id">
+            <div v-if="i > 0" class="h-6 w-0.5 shrink-0" :class="state(group.skills[i - 1]) !== 'locked' ? 'bg-primary/60' : 'bg-white/10'" />
+            <div class="flex w-full max-w-[220px] flex-col items-center gap-2 pb-6 text-center last:pb-0">
+              <div
+                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 transition-all"
+                :class="[
+                  state(skill) === 'owned' ? 'glow-primary border-primary bg-primary text-white' : '',
+                  state(skill) === 'available' ? 'glow-primary animate-pulse border-primary/60 text-primary' : '',
+                  state(skill) === 'locked' ? 'border-white/10 text-muted-foreground/40 grayscale' : '',
+                ]"
+              >
+                <Check v-if="state(skill) === 'owned'" :size="20" />
+                <Lock v-else-if="state(skill) === 'locked'" :size="16" />
+                <Star v-else :size="18" />
               </div>
-              <Badge v-if="state(skill) !== 'owned'" variant="secondary" class="shrink-0">{{ skill.cost }} SP</Badge>
+              <div>
+                <p class="text-sm font-medium">{{ skill.name }}</p>
+                <p class="mt-0.5 text-xs text-muted-foreground">{{ skill.description }}</p>
+              </div>
+              <Badge v-if="state(skill) !== 'owned'" variant="secondary">{{ skill.cost }} SP</Badge>
+              <button
+                v-if="state(skill) === 'available'"
+                type="button"
+                :disabled="unlocking === skill.id"
+                class="w-full rounded-xl bg-primary/20 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/30 disabled:opacity-50"
+                @click="unlock(skill)"
+              >
+                {{ unlocking === skill.id ? 'Desbloqueando…' : 'Desbloquear' }}
+              </button>
             </div>
-            <button
-              v-if="state(skill) === 'available'"
-              type="button"
-              :disabled="unlocking === skill.id"
-              class="mt-2 w-full rounded-xl bg-primary/20 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/30 disabled:opacity-50"
-              @click="unlock(skill)"
-            >
-              {{ unlocking === skill.id ? 'Desbloqueando…' : 'Desbloquear' }}
-            </button>
-          </div>
+          </template>
         </div>
       </div>
     </div>

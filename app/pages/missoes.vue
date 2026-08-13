@@ -14,8 +14,15 @@ const { refresh: refreshUser } = useUserState()
 const difficulties = Object.keys(difficultyLabel) as HabitDifficulty[]
 const categories = Object.keys(categoryLabel) as HabitCategory[]
 
-const activeMissions = computed(() => missions.value?.filter((m) => m.status === 'ativa') ?? [])
-const standbyMissions = computed(() => missions.value?.filter((m) => m.status === 'standby') ?? [])
+function byDeadlineAsc(a: { deadline: string | null }, b: { deadline: string | null }) {
+  if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline)
+  if (a.deadline) return -1
+  if (b.deadline) return 1
+  return 0
+}
+
+const activeMissions = computed(() => (missions.value?.filter((m) => m.status === 'ativa') ?? []).sort(byDeadlineAsc))
+const standbyMissions = computed(() => (missions.value?.filter((m) => m.status === 'standby') ?? []).sort(byDeadlineAsc))
 
 const showForm = ref(false)
 const newTitle = ref('')

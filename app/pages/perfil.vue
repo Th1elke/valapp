@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Award, Camera, CalendarSync, Coins, Flame, Heart, Music2, Shield, Sparkles, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
+import { Camera, CalendarSync, Coins, Flame, Heart, Music2, Shield, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -208,19 +208,6 @@ async function handleUnlinkGoogle() {
   }
 }
 
-const milestones = computed(() => [
-  { level: 5, label: 'Escolha de classe', icon: Sparkles },
-  {
-    level: 15,
-    label: user.value?.playerClass ? `Sub-evolução (${getClassInfo(user.value.playerClass, 15).label})` : 'Sub-evolução',
-    icon: Award,
-  },
-  {
-    level: 30,
-    label: user.value?.playerClass ? `Sub-evolução máxima (${getClassInfo(user.value.playerClass, 30).label})` : 'Sub-evolução máxima',
-    icon: Award,
-  },
-])
 </script>
 
 <template>
@@ -473,31 +460,6 @@ const milestones = computed(() => [
       <h2 class="mb-1 font-semibold">Atributos</h2>
       <p class="mb-2 text-sm text-muted-foreground">XP acumulado por área — mostra seu estilo de jogo na vida real</p>
       <AttributeRadar :stats="stats" />
-    </div>
-
-    <div v-if="user.playerClass" class="glass-panel p-5">
-      <SkillTree />
-    </div>
-
-    <div class="glass-panel p-5">
-      <h2 class="mb-4 font-semibold">Evolução da classe</h2>
-      <div class="space-y-3">
-        <div
-          v-for="milestone in milestones"
-          :key="milestone.level"
-          class="flex items-center gap-3 rounded-2xl p-3"
-          :class="user.level >= milestone.level ? 'glass-inset' : 'opacity-40'"
-        >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br" :class="classInfo?.gradient">
-            <component :is="milestone.icon" :size="16" class="text-white" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium">Nível {{ milestone.level }}</p>
-            <p class="text-xs text-muted-foreground">{{ milestone.label }}</p>
-          </div>
-          <Badge v-if="user.level >= milestone.level" variant="success">Alcançado</Badge>
-        </div>
-      </div>
     </div>
 
     <div class="glass-panel space-y-5 p-5">
