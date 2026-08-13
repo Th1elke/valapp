@@ -34,3 +34,11 @@ export function uploadCover(file: File) {
   body.append('cover', file)
   return $fetch<UserStateDTO>('/api/user/cover', { method: 'POST', body })
 }
+
+export function syncGoogleClassroom() {
+  return $fetch<{ imported: number; skipped: number }>('/api/user/google/sync', { method: 'POST' })
+}
+
+export function unlinkGoogle() {
+  return $fetch('/api/user/google/unlink', { method: 'POST' })
+}

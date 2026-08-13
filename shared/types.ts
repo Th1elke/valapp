@@ -6,7 +6,7 @@ export type HabitFrequency = 'diaria' | 'semanal' | 'dias_customizados'
 export type HabitStatus = 'ativo' | 'pausado' | 'arquivado'
 export type PlayerClass = 'guerreiro' | 'mago' | 'paladino' | 'arqueiro' | 'ladino' | 'bardo'
 export type ShieldTargetType = 'protecao_dia' | 'protecao_streak'
-export type MissionStatus = 'ativa' | 'concluida' | 'cancelada'
+export type MissionStatus = 'ativa' | 'standby' | 'concluida' | 'cancelada'
 export type GrimoireStatus = 'gerado' | 'concluida'
 
 export const categoryLabel: Record<HabitCategory, string> = {
@@ -81,6 +81,9 @@ export interface UserStateDTO {
   coverUrl: string | null
   unlockedSkills: string[]
   availableSkillPoints: number
+  googleLinked: boolean
+  googleEmail: string | null
+  lastClassroomSyncAt: string | null
 }
 
 export interface MissionDTO {
@@ -88,9 +91,9 @@ export interface MissionDTO {
   title: string
   description: string | null
   category: HabitCategory | null
-  difficulty: HabitDifficulty
-  xpReward: number
-  goldReward: number
+  difficulty: HabitDifficulty | null
+  xpReward: number | null
+  goldReward: number | null
   status: MissionStatus
   deadline: string | null
   createdAt: string

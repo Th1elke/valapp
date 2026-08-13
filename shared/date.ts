@@ -8,6 +8,12 @@ export function todayStr(): string {
   return toDateStr(new Date())
 }
 
+/** Formats a YYYY-MM-DD date string as DD/MM/YYYY for display. */
+export function formatDateStr(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-')
+  return `${day}/${month}/${year}`
+}
+
 /** Monday of the week containing `dateStr` (defaults to today), as YYYY-MM-DD — used for the weekly shield renewal (docs 5.2). */
 export function weekStartStr(dateStr: string = todayStr()): string {
   const [y, m, d] = dateStr.split('-').map(Number)

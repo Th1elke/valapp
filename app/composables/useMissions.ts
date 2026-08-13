@@ -8,7 +8,7 @@ export function createMission(input: {
   title: string
   description?: string
   category?: HabitCategory | null
-  difficulty: HabitDifficulty
+  difficulty?: HabitDifficulty | null
   deadline?: string | null
 }) {
   return $fetch('/api/missions', { method: 'POST', body: input })
@@ -22,4 +22,8 @@ export function completeMission(id: string) {
 
 export function cancelMission(id: string) {
   return $fetch(`/api/missions/${id}`, { method: 'DELETE' })
+}
+
+export function updateMissionDifficulty(id: string, difficulty: HabitDifficulty) {
+  return $fetch(`/api/missions/${id}/difficulty`, { method: 'PATCH', body: { difficulty } })
 }

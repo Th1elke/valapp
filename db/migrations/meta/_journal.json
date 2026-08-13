@@ -15,6 +15,20 @@
       "when": 1786309060840,
       "tag": "0001_bored_gorgon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786503898384,
+      "tag": "0002_dark_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786550939947,
+      "tag": "0003_misty_iron_monger",
+      "breakpoints": true
     }
   ]
 }

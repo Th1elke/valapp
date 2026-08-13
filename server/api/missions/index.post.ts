@@ -8,7 +8,8 @@ export default defineEventHandler(async (event) => {
   if (typeof body?.title !== 'string' || !body.title.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Título da missão é obrigatório.' })
   }
-  if (!habitDifficulties.includes(body.difficulty)) {
+  const hasDifficulty = typeof body.difficulty === 'string' && body.difficulty.trim() !== ''
+  if (hasDifficulty && !habitDifficulties.includes(body.difficulty)) {
     throw createError({ statusCode: 400, statusMessage: 'Dificuldade inválida.' })
   }
   if (body.category !== undefined && body.category !== null && !habitCategories.includes(body.category)) {
@@ -29,9 +30,10 @@ export default defineEventHandler(async (event) => {
       title: body.title.trim(),
       description: typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null,
       category: body.category ?? null,
-      difficulty: body.difficulty,
-      xpReward: missionXpReward(body.difficulty),
-      goldReward: missionGoldReward(body.difficulty),
+      difficulty: hasDifficulty ? body.difficulty : null,
+      xpReward: hasDifficulty ? missionXpReward(body.difficulty) : null,
+      goldReward: hasDifficulty ? missionGoldReward(body.difficulty) : null,
+      status: hasDifficulty ? 'ativa' : 'standby',
       deadline,
     })
     .returning()

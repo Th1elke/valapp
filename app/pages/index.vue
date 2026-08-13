@@ -17,6 +17,8 @@ const { data: habits, refresh: refreshHabits } = useHabits()
 const { data: missions } = useMissions()
 const { data: stats, refresh: refreshStats } = useAttributeStats()
 
+const activeMissionsCount = computed(() => missions.value?.filter((m) => m.status === 'ativa').length ?? 0)
+
 const { el: doneListEl, onPointerDown: onDoneListDown, onPointerMove: onDoneListMove, onPointerUp: onDoneListUp } = useDragScroll('y')
 
 async function toggleHabit(id: string) {
@@ -218,12 +220,12 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
       </Card>
 
       <NuxtLink
-        v-if="missions?.length"
+        v-if="activeMissionsCount"
         to="/missoes"
         class="glass-panel glass-panel-hover flex items-center gap-3 p-4 text-sm lg:col-span-3"
       >
         <ScrollText :size="18" class="text-violet-400" />
-        <span>Você tem <strong>{{ missions.length }}</strong> missão(ões) ativa(s) esperando</span>
+        <span>Você tem <strong>{{ activeMissionsCount }}</strong> missão(ões) ativa(s) esperando</span>
       </NuxtLink>
 
       <div class="glass-panel p-5 lg:col-span-3">

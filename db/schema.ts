@@ -45,7 +45,7 @@ export const hpEventTypes = [
 ] as const
 export const goldEventTypes = ['checkin', 'dia_perfeito', 'missao', 'compra', 'ajuste_manual', 'grimorio'] as const
 export const shieldTargetTypes = ['protecao_dia', 'protecao_streak'] as const
-export const missionStatuses = ['ativa', 'concluida', 'cancelada'] as const
+export const missionStatuses = ['ativa', 'standby', 'concluida', 'cancelada'] as const
 export const grimoireStatuses = ['gerado', 'concluida'] as const
 export const inventoryItemIds = [
   'potion_small',
@@ -84,6 +84,12 @@ export const users = pgTable('users', {
   equippedTheme: text('equipped_theme'),
   avatarUrl: text('avatar_url'),
   coverUrl: text('cover_url'),
+
+  googleAccessToken: text('google_access_token'),
+  googleRefreshToken: text('google_refresh_token'),
+  googleTokenExpiresAt: text('google_token_expires_at'),
+  googleEmail: text('google_email'),
+  lastClassroomSyncAt: text('last_classroom_sync_at'),
 
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -180,11 +186,13 @@ export const missions = pgTable('missions', {
   title: text('title').notNull(),
   description: text('description'),
   category: text('category', { enum: habitCategories }),
-  difficulty: text('difficulty', { enum: habitDifficulties }).notNull(),
-  xpReward: integer('xp_reward').notNull(),
-  goldReward: integer('gold_reward').notNull(),
+  difficulty: text('difficulty', { enum: habitDifficulties }),
+  xpReward: integer('xp_reward'),
+  goldReward: integer('gold_reward'),
   status: text('status', { enum: missionStatuses }).notNull().default('ativa'),
   deadline: text('deadline'),
+  source: text('source').notNull().default('manual'),
+  externalId: text('external_id'),
   createdAt: createdAt(),
   completedAt: text('completed_at'),
 })

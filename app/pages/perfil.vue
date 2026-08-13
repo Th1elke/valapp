@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Award, Camera, Coins, Flame, Heart, Music2, Shield, Sparkles, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
+import { Award, Camera, CalendarSync, Coins, Flame, Heart, Music2, Shield, Sparkles, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -167,6 +167,44 @@ async function changeClass(playerClass: PlayerClass) {
     classChangeError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível trocar de classe.'
   } finally {
     changingClass.value = false
+  }
+}
+
+// Integração com Google Classroom: vincula a conta e importa atividades como missões standby.
+const route = useRoute()
+const googleLinkMessage = computed(() => {
+  if (route.query.google === 'linked') return { type: 'success', text: 'Conta Google vinculada com sucesso!' }
+  if (route.query.google === 'error') return { type: 'error', text: 'Não foi possível vincular a conta Google.' }
+  return null
+})
+
+const syncingGoogle = ref(false)
+const googleSyncError = ref('')
+const googleSyncResult = ref<{ imported: number; skipped: number } | null>(null)
+const unlinkingGoogle = ref(false)
+
+async function handleSyncGoogle() {
+  syncingGoogle.value = true
+  googleSyncError.value = ''
+  googleSyncResult.value = null
+  try {
+    googleSyncResult.value = await syncGoogleClassroom()
+    await Promise.all([refreshUser(), refreshNuxtData('missions')])
+  } catch (err) {
+    googleSyncError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível sincronizar.'
+  } finally {
+    syncingGoogle.value = false
+  }
+}
+
+async function handleUnlinkGoogle() {
+  unlinkingGoogle.value = true
+  try {
+    await unlinkGoogle()
+    await refreshUser()
+    googleSyncResult.value = null
+  } finally {
+    unlinkingGoogle.value = false
   }
 }
 
@@ -392,6 +430,43 @@ const milestones = computed(() => [
         </button>
       </div>
       <p v-if="classChangeError" class="text-sm text-red-400">{{ classChangeError }}</p>
+    </div>
+
+    <div class="glass-panel space-y-4 p-5">
+      <div class="flex items-center gap-3">
+        <CalendarSync :size="20" class="text-violet-400" />
+        <div>
+          <h2 class="font-semibold">Google Classroom</h2>
+          <p class="text-sm text-muted-foreground">Importa suas atividades do Classroom como missões pendentes</p>
+        </div>
+      </div>
+
+      <p v-if="googleLinkMessage" class="text-sm" :class="googleLinkMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'">
+        {{ googleLinkMessage.text }}
+      </p>
+
+      <div v-if="!user.googleLinked">
+        <Button as="a" href="/auth/google" class="rounded-full">Vincular conta Google</Button>
+      </div>
+      <template v-else>
+        <p class="text-sm text-muted-foreground">
+          Vinculado como <span class="text-foreground">{{ user.googleEmail }}</span>
+          <template v-if="user.lastClassroomSyncAt"> · última sincronização em {{ new Date(user.lastClassroomSyncAt).toLocaleString('pt-BR') }}</template>
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <Button size="sm" class="rounded-full" :disabled="syncingGoogle" @click="handleSyncGoogle">
+            {{ syncingGoogle ? 'Sincronizando…' : 'Sincronizar Classroom' }}
+          </Button>
+          <Button variant="ghost" size="sm" :disabled="unlinkingGoogle" @click="handleUnlinkGoogle">
+            {{ unlinkingGoogle ? 'Desvinculando…' : 'Desvincular' }}
+          </Button>
+        </div>
+        <p v-if="googleSyncResult" class="text-sm text-emerald-400">
+          {{ googleSyncResult.imported }} importada(s), {{ googleSyncResult.skipped }} já existente(s)
+        </p>
+        <p v-if="googleSyncError" class="text-sm text-red-400">{{ googleSyncError }}</p>
+        <p class="text-xs text-muted-foreground">Importa atividades publicadas no Classroom, mesmo as já entregues.</p>
+      </template>
     </div>
 
     <div v-if="stats" class="glass-panel p-5">

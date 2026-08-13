@@ -42,5 +42,8 @@ export async function toUserStateDTO(user: typeof users.$inferSelect, tx: Querya
     coverUrl: user.coverUrl,
     unlockedSkills,
     availableSkillPoints: getAvailableSP(user.level, unlockedSkills.length),
+    googleLinked: user.googleRefreshToken !== null,
+    googleEmail: user.googleEmail,
+    lastClassroomSyncAt: user.lastClassroomSyncAt,
   }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BookOpen, FlaskConical, LayoutDashboard, ListChecks, ScrollText, Store, UserRound } from 'lucide-vue-next'
+import { BookOpen, Calendar, FlaskConical, LayoutDashboard, ListChecks, ScrollText, Store, UserRound } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -7,6 +7,7 @@ const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/habitos', label: 'Hábitos', icon: ListChecks },
   { to: '/missoes', label: 'Missões', icon: ScrollText },
+  { to: '/agenda', label: 'Agenda', icon: Calendar },
   { to: '/grimorio', label: 'Grimório', icon: BookOpen },
   { to: '/loja', label: 'Taverna', icon: Store },
   { to: '/perfil', label: 'Perfil', icon: UserRound },
