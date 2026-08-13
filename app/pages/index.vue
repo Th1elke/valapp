@@ -15,11 +15,15 @@ import { containsEmoji, MAX_NAME_LENGTH } from '#shared/validation'
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: habits, refresh: refreshHabits } = useHabits()
 const { data: missions } = useMissions()
-const { data: stats, refresh: refreshStats } = useAttributeStats()
+const { refresh: refreshStats } = useAttributeStats()
+const toast = useAppToast()
 
 const activeMissionsCount = computed(() => missions.value?.filter((m) => m.status === 'ativa').length ?? 0)
 
 const { el: doneListEl, onPointerDown: onDoneListDown, onPointerMove: onDoneListMove, onPointerUp: onDoneListUp } = useDragScroll('y')
+
+// +N XP flutuante perto do card marcado, some sozinho — feedback imediato de recompensa (docs 4).
+const floatingXp = ref<{ habitId: string; amount: number } | null>(null)
 
 async function toggleHabit(id: string) {
   const habit = habits.value?.find((h) => h.id === id)
@@ -27,7 +31,14 @@ async function toggleHabit(id: string) {
   if (habit.doneToday) {
     await undoCheckin(id)
   } else {
-    await checkinHabit(id)
+    const result = await checkinHabit(id)
+    if (result.xpAwarded > 0) {
+      floatingXp.value = { habitId: id, amount: result.xpAwarded }
+      toast.success(`+${result.xpAwarded} XP`)
+      setTimeout(() => {
+        if (floatingXp.value?.habitId === id) floatingXp.value = null
+      }, 1200)
+    }
   }
   await Promise.all([refreshHabits(), refreshUser(), refreshStats()])
 }
@@ -81,6 +92,29 @@ const equippedTitleName = computed(() => TITLES.find((t) => t.id === user.value?
 const xpIntoLevel = computed(() => (user.value ? user.value.xp - user.value.xpFloor : 0))
 const xpNeeded = computed(() => (user.value ? Math.max(1, user.value.xpCeil - user.value.xpFloor) : 1))
 
+// Conta a barra de XP subindo até o novo valor em vez de saltar direto — reforça o check-in (docs 4).
+const xpDisplay = ref(0)
+watch(
+  xpIntoLevel,
+  (target, previous) => {
+    if (!import.meta.client || prefersReducedMotion()) {
+      xpDisplay.value = target
+      return
+    }
+    const start = previous ?? target
+    const startTime = performance.now()
+    const duration = 700
+    function tick(now: number) {
+      const progress = Math.min(1, (now - startTime) / duration)
+      const eased = 1 - (1 - progress) ** 3
+      xpDisplay.value = Math.round(start + (target - start) * eased)
+      if (progress < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  },
+  { immediate: true },
+)
+
 const today = todayStr()
 const activeHabits = computed(() =>
   (habits.value ?? []).filter((h) => h.status === 'ativo' && isHabitScheduled(h.frequency, h.customDays, today)),
@@ -119,7 +153,7 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
                   @keyup.escape="editingName = false"
                   @blur="saveName"
                 />
-                <Check :size="16" class="shrink-0 text-emerald-400" />
+                <Check :size="16" class="shrink-0 text-success" />
               </div>
               <button
                 v-else
@@ -150,8 +184,8 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
           </Button>
         </div>
         <div>
-          <Progress :model-value="xpIntoLevel" :max="xpNeeded" class="glow-primary" />
-          <p class="mt-1.5 text-xs text-muted-foreground">{{ xpIntoLevel }} / {{ xpNeeded }} XP para o nível {{ user.level + 1 }}</p>
+          <Progress :model-value="xpDisplay" :max="xpNeeded" class="glow-primary" />
+          <p class="mt-1.5 text-xs text-muted-foreground">{{ xpDisplay }} / {{ xpNeeded }} XP para o nível {{ user.level + 1 }}</p>
         </div>
       </div>
 
@@ -169,16 +203,7 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
         </CardContent>
       </Card>
 
-      <Card v-if="stats" class="glass-panel border-0">
-        <CardHeader class="pb-2">
-          <CardTitle class="text-sm font-medium text-muted-foreground">Atributos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AttributeRadar :stats="stats" />
-        </CardContent>
-      </Card>
-
-      <Card class="glass-panel border-0">
+      <Card class="glass-panel border-0 lg:col-span-2">
         <CardHeader class="flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium text-muted-foreground">Itens Ativos</CardTitle>
           <Swords :size="16" class="text-primary" />
@@ -195,7 +220,7 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
         </CardHeader>
         <CardContent>
           <p class="text-2xl font-semibold">{{ doneCount }} / {{ dailyRatioHabits.length }}</p>
-          <p class="mt-1 text-xs" :class="isPerfectDay ? 'text-emerald-400' : 'text-muted-foreground'">
+          <p class="mt-1 text-xs" :class="isPerfectDay ? 'text-success' : 'text-muted-foreground'">
             {{ isPerfectDay ? 'Dia perfeito! +15 XP e +10 ouro no fechamento do dia' : 'hábitos concluídos' }}
           </p>
           <ul
@@ -212,7 +237,7 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
               :key="habit.id"
               class="glass-inset pointer-events-none flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-foreground"
             >
-              <Check :size="18" class="shrink-0 text-emerald-400" />
+              <Check :size="18" class="shrink-0 text-success" />
               <span class="truncate">{{ habit.name }}</span>
             </li>
           </ul>
@@ -236,7 +261,13 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
           </span>
         </div>
         <div v-if="activeHabits.length" class="space-y-2">
-          <HabitCard v-for="habit in activeHabits" :key="habit.id" :habit="habit" @toggle="toggleHabit" />
+          <HabitCard
+            v-for="habit in activeHabits"
+            :key="habit.id"
+            :habit="habit"
+            :xp-float="floatingXp?.habitId === habit.id ? floatingXp.amount : null"
+            @toggle="toggleHabit"
+          />
         </div>
         <p v-else class="text-center text-sm text-muted-foreground">Nenhum hábito ativo ainda. Cadastre um na aba Hábitos.</p>
       </div>
@@ -244,9 +275,9 @@ const isPerfectDay = computed(() => dailyRatioHabits.value.length > 0 && doneCou
 
     <Teleport to="body">
       <div v-if="relapseInfo" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
-        <div class="glass-panel w-full max-w-sm border-red-500/30 p-8 text-center">
-          <HeartCrack :size="48" class="mx-auto mb-4 text-red-500" />
-          <h2 class="mb-1 text-2xl font-bold text-red-400">Você recaiu</h2>
+        <div class="glass-panel w-full max-w-sm border-destructive/30 p-8 text-center">
+          <HeartCrack :size="48" class="mx-auto mb-4 text-destructive" />
+          <h2 class="mb-1 text-2xl font-bold text-destructive">Você recaiu</h2>
           <p class="mb-4 text-sm text-muted-foreground">Seu HP chegou a 0 — a sequência cobrou o preço.</p>
           <div class="glass-inset mb-5 space-y-1 rounded-2xl p-4 text-sm">
             <p>Perdeu <strong>{{ Math.abs(relapseInfo.xpChange) }} XP</strong></p>

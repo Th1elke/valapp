@@ -7,6 +7,7 @@ import type { GrimoireAnswerResultDTO, GrimoireSessionDTO } from '#shared/types'
 
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: history, refresh: refreshHistory } = useGrimoireHistory()
+const toast = useAppToast()
 
 const content = ref('')
 const useElixirChecked = ref(false)
@@ -108,6 +109,11 @@ function nextQuestion() {
     session.value.status = 'concluida'
     session.value.correctCount = lastResult.value.correctCount
     session.value.xpAwarded = lastResult.value.xpAwarded
+    toast.success(
+      lastResult.value.correctCount === 3
+        ? `Chefe derrotado! +${lastResult.value.xpAwarded} XP em Inteligência`
+        : `O chefe resistiu — ${lastResult.value.correctCount}/3 acertos`,
+    )
   }
   showFeedback.value = false
   selectedOption.value = null
@@ -159,7 +165,7 @@ async function resume(target: GrimoireSessionDTO) {
           <Sparkles :size="16" /> {{ analyzing ? 'Invocando o chefe…' : 'Analisar Conhecimento' }}
         </Button>
       </div>
-      <p v-if="analyzeError" class="text-sm text-red-400">{{ analyzeError }}</p>
+      <p v-if="analyzeError" class="text-sm text-destructive">{{ analyzeError }}</p>
     </div>
 
     <div v-if="session" class="space-y-4">
@@ -237,8 +243,8 @@ async function resume(target: GrimoireSessionDTO) {
               :class="[
                 selectedOption === i && !showFeedback ? 'border-primary' : 'border-white/5',
                 eliminatedIndices.includes(i) ? 'opacity-30' : '',
-                showFeedback && lastResult && i === lastResult.correctIndex ? 'border-emerald-500 bg-emerald-500/10' : '',
-                showFeedback && lastResult && i === selectedOption && !lastResult.correct ? 'border-red-500 bg-red-500/10' : '',
+                showFeedback && lastResult && i === lastResult.correctIndex ? 'border-success bg-success/10' : '',
+                showFeedback && lastResult && i === selectedOption && !lastResult.correct ? 'border-destructive bg-destructive/10' : '',
               ]"
               @click="!showFeedback && !eliminatedIndices.includes(i) && (selectedOption = i)"
             >
@@ -246,8 +252,8 @@ async function resume(target: GrimoireSessionDTO) {
                 class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs"
                 :class="selectedOption === i ? 'border-primary bg-primary/20' : 'border-white/20'"
               >
-                <Check v-if="showFeedback && lastResult && i === lastResult.correctIndex" :size="12" class="text-emerald-400" />
-                <X v-else-if="showFeedback && i === selectedOption && lastResult && !lastResult.correct" :size="12" class="text-red-400" />
+                <Check v-if="showFeedback && lastResult && i === lastResult.correctIndex" :size="12" class="text-success" />
+                <X v-else-if="showFeedback && i === selectedOption && lastResult && !lastResult.correct" :size="12" class="text-destructive" />
               </span>
               {{ option }}
             </button>
@@ -261,11 +267,11 @@ async function resume(target: GrimoireSessionDTO) {
               <VenetianMask :size="14" /> Você fintou o destino! O erro não contou. Tente novamente.
             </p>
             <template v-else>
-              <p class="text-sm" :class="lastResult.correct ? 'text-emerald-400' : 'text-red-400'">
+              <p class="text-sm" :class="lastResult.correct ? 'text-success' : 'text-destructive'">
                 {{ lastResult.correct ? 'Acertou! Dano no chefe.' : `Errou. Você perdeu ${hpLossLastAnswer} HP.` }}
               </p>
               <p v-if="lastResult.explanation" class="text-sm text-muted-foreground">{{ lastResult.explanation }}</p>
-              <p v-if="lastResult.relapsed" class="flex items-center gap-2 text-sm font-semibold text-red-500">
+              <p v-if="lastResult.relapsed" class="flex items-center gap-2 text-sm font-semibold text-destructive">
                 <Skull :size="14" /> Seu HP chegou a 0 — você recaiu (veja o Dashboard).
               </p>
             </template>
@@ -305,7 +311,7 @@ async function resume(target: GrimoireSessionDTO) {
         @click="resume(item)"
       >
         <span class="min-w-0 flex-1 truncate text-muted-foreground">{{ item.summary }}</span>
-        <span v-if="item.status === 'concluida'" class="shrink-0 text-emerald-400">{{ item.correctCount }}/3 · +{{ item.xpAwarded }} XP</span>
+        <span v-if="item.status === 'concluida'" class="shrink-0 text-success">{{ item.correctCount }}/3 · +{{ item.xpAwarded }} XP</span>
         <span v-else class="shrink-0 text-amber-400">Batalha pendente</span>
       </button>
     </div>

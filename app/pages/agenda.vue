@@ -83,8 +83,8 @@ const selectedLabel = computed(() => (selectedDate.value === today ? 'Hoje' : fo
       <p class="text-muted-foreground">Suas missões organizadas por data</p>
     </div>
 
-    <div v-if="overdueMissions.length" class="glass-panel space-y-1 border border-red-400/30 p-4">
-      <p class="text-sm font-medium text-red-400">{{ overdueMissions.length }} missão(ões) atrasada(s)</p>
+    <div v-if="overdueMissions.length" class="glass-panel space-y-1 border border-destructive/30 p-4">
+      <p class="text-sm font-medium text-destructive">{{ overdueMissions.length }} missão(ões) atrasada(s)</p>
       <p class="text-xs text-muted-foreground">Confira em Missões ou clique no dia correspondente no calendário abaixo.</p>
     </div>
 
@@ -123,7 +123,7 @@ const selectedLabel = computed(() => (selectedDate.value === today ? 'Hoje' : fo
           <span
             v-if="missionsByDate.get(day.dateStr)?.length"
             class="h-1.5 w-1.5 rounded-full"
-            :class="day.dateStr < today ? 'bg-red-400' : 'bg-primary'"
+            :class="day.dateStr < today ? 'bg-destructive' : 'bg-primary'"
           />
         </button>
       </div>

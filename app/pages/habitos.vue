@@ -185,7 +185,7 @@ async function confirmPause(id: string) {
 
         <Button :disabled="creating" class="sm:col-span-3" @click="submitNewHabit">{{ creating ? 'Criando…' : 'Criar hábito' }}</Button>
       </div>
-      <p v-if="formError" class="text-sm text-red-400">{{ formError }}</p>
+      <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
     </div>
 
     <div class="glass-panel divide-y divide-white/5 p-2">

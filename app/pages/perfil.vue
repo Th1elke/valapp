@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Camera, CalendarSync, Coins, Flame, Heart, Music2, Shield, Sword, Target, VenetianMask, Wand2 } from 'lucide-vue-next'
+import { Camera, CalendarSync, Coins, Flame, Heart, Music2, Shield, Sword, Target, TreeDeciduous, VenetianMask, Wand2 } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { BORDERS, THEMES, TITLES, type CosmeticCategory } from '#shared/cosmetics'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TITLES } from '#shared/cosmetics'
 import { getMaxShields } from '#shared/economy'
 import { CLASS_CHANGE_COOLDOWN_DAYS, CLASS_CHANGE_XP_COST_PERCENT, getClassInfo } from '#shared/gamification'
 import type { PlayerClass, ShieldTargetType } from '#shared/types'
@@ -13,38 +14,12 @@ import type { PlayerClass, ShieldTargetType } from '#shared/types'
 const { data: user, refresh: refreshUser } = useUserState()
 const { data: habits } = useHabits()
 const { data: stats } = useAttributeStats()
+const toast = useAppToast()
 
 const classInfo = computed(() => (user.value ? getClassInfo(user.value.playerClass, user.value.level) : null))
 const maxShields = computed(() => getMaxShields(user.value?.unlockedSkills ?? []))
 const equippedTitleName = computed(() => TITLES.find((t) => t.id === user.value?.equippedTitle)?.name ?? null)
 
-const cosmeticGroups: { category: CosmeticCategory; label: string; items: typeof TITLES }[] = [
-  { category: 'titulo', label: 'Títulos', items: TITLES },
-  { category: 'borda', label: 'Bordas de Avatar', items: BORDERS },
-  { category: 'tema', label: 'Temas de Cor', items: THEMES },
-]
-const equipping = ref<string | null>(null)
-const cosmeticError = ref('')
-
-function isEquipped(category: CosmeticCategory, id: string) {
-  if (!user.value) return false
-  if (category === 'titulo') return user.value.equippedTitle === id
-  if (category === 'borda') return user.value.equippedAvatarBorder === id
-  return user.value.equippedTheme === id
-}
-
-async function toggleEquip(category: CosmeticCategory, id: string) {
-  equipping.value = id
-  cosmeticError.value = ''
-  try {
-    await equipCosmetic(category, isEquipped(category, id) ? null : id)
-    await refreshUser()
-  } catch (err) {
-    cosmeticError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível equipar.'
-  } finally {
-    equipping.value = null
-  }
-}
 const avatarInput = ref<HTMLInputElement | null>(null)
 const uploadingAvatar = ref(false)
 const avatarError = ref('')
@@ -133,9 +108,11 @@ async function activateShield() {
       shieldTargetType.value === 'protecao_dia'
         ? 'Escudo ativado — hoje não perde HP se algum hábito ficar pendente.'
         : 'Escudo ativado — a sequência desse hábito fica protegida hoje.'
+    toast.success(shieldSuccess.value)
     shieldHabitId.value = ''
   } catch (err) {
     shieldError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível usar o escudo.'
+    toast.error(shieldError.value)
   } finally {
     usingShield.value = false
   }
@@ -280,8 +257,8 @@ async function handleUnlinkGoogle() {
         <Progress :model-value="xpIntoLevel" :max="xpNeeded" class="mt-2 glow-primary" />
         <p class="mt-1 text-xs text-muted-foreground">{{ xpIntoLevel }} / {{ xpNeeded }} XP para o nível {{ user.level + 1 }}</p>
       </div>
-      <p v-if="coverError" class="px-4 pt-2 text-xs text-red-400 sm:px-6">{{ coverError }}</p>
-      <p v-if="avatarError" class="px-4 pt-2 text-xs text-red-400 sm:px-6">{{ avatarError }}</p>
+      <p v-if="coverError" class="px-4 pt-2 text-xs text-destructive sm:px-6">{{ coverError }}</p>
+      <p v-if="avatarError" class="px-4 pt-2 text-xs text-destructive sm:px-6">{{ avatarError }}</p>
     </div>
 
     <div v-if="canChooseClass" class="glass-panel space-y-4 p-5">
@@ -302,192 +279,183 @@ async function handleUnlinkGoogle() {
       </div>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-4">
-      <Card class="glass-panel border-0">
-        <CardContent class="flex items-center gap-3 pt-6">
-          <Heart :size="20" class="text-rose-400" />
-          <div>
-            <p class="text-xs text-muted-foreground">Vida atual</p>
-            <p class="text-lg font-semibold">{{ user.hp }} / 100</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card class="glass-panel border-0">
-        <CardContent class="flex items-center gap-3 pt-6">
-          <Coins :size="20" class="text-amber-400" />
-          <div>
-            <p class="text-xs text-muted-foreground">Ouro</p>
-            <p class="text-lg font-semibold">{{ user.gold }}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card class="glass-panel border-0">
-        <CardContent class="flex items-center gap-3 pt-6">
-          <Flame :size="20" class="text-orange-400" />
-          <div>
-            <p class="text-xs text-muted-foreground">Maior sequência</p>
-            <p class="text-lg font-semibold">{{ longestStreak }} dias</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card class="glass-panel border-0">
-        <CardContent class="flex items-center gap-3 pt-6">
-          <Shield :size="20" class="text-violet-400" />
-          <div>
-            <p class="text-xs text-muted-foreground">Escudos disponíveis</p>
-            <p class="text-lg font-semibold">{{ user.shieldsRemaining }} / {{ maxShields }}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Tabs default-value="visao-geral">
+      <TabsList>
+        <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
+        <TabsTrigger value="progressao">Progressão</TabsTrigger>
+        <TabsTrigger value="conta">Conta & Integrações</TabsTrigger>
+      </TabsList>
 
-    <div class="glass-panel space-y-4 p-5">
-      <div>
-        <h2 class="font-semibold">Usar escudo</h2>
-        <p class="text-sm text-muted-foreground">
-          Protege antes do fechamento do dia: cancela a perda de HP do dia inteiro, ou preserva a sequência de um hábito específico
-          (sem gerar XP). No máximo 1 uso por semana, mesmo com escudos guardados.
-        </p>
-      </div>
-      <div v-if="user.shieldsRemaining === 0" class="text-sm text-muted-foreground">
-        Sem escudos disponíveis agora — renova toda segunda-feira, ou compre mais na Taverna.
-      </div>
-      <template v-else>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
-            :class="shieldTargetType === 'protecao_dia' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
-            @click="shieldTargetType = 'protecao_dia'"
-          >
-            Proteger o dia de hoje
-          </button>
-          <button
-            type="button"
-            class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
-            :class="shieldTargetType === 'protecao_streak' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
-            @click="shieldTargetType = 'protecao_streak'"
-          >
-            Proteger sequência de um hábito
-          </button>
+      <TabsContent value="visao-geral">
+        <div class="grid gap-4 sm:grid-cols-4">
+          <Card class="glass-panel border-0">
+            <CardContent class="flex items-center gap-3 pt-6">
+              <Heart :size="20" class="text-rose-400" />
+              <div>
+                <p class="text-xs text-muted-foreground">Vida atual</p>
+                <p class="text-lg font-semibold">{{ user.hp }} / 100</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card class="glass-panel border-0">
+            <CardContent class="flex items-center gap-3 pt-6">
+              <Coins :size="20" class="text-amber-400" />
+              <div>
+                <p class="text-xs text-muted-foreground">Ouro</p>
+                <p class="text-lg font-semibold">{{ user.gold }}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card class="glass-panel border-0">
+            <CardContent class="flex items-center gap-3 pt-6">
+              <Flame :size="20" class="text-orange-400" />
+              <div>
+                <p class="text-xs text-muted-foreground">Maior sequência</p>
+                <p class="text-lg font-semibold">{{ longestStreak }} dias</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card class="glass-panel border-0">
+            <CardContent class="flex items-center gap-3 pt-6">
+              <Shield :size="20" class="text-violet-400" />
+              <div>
+                <p class="text-xs text-muted-foreground">Escudos disponíveis</p>
+                <p class="text-lg font-semibold">{{ user.shieldsRemaining }} / {{ maxShields }}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <Select v-if="shieldTargetType === 'protecao_streak'" v-model="shieldHabitId">
-          <SelectTrigger>
-            <SelectValue placeholder="Escolha um hábito" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="habit in activeHabitsForShield" :key="habit.id" :value="habit.id">
-              {{ habit.name }} (sequência: {{ habit.streakCount }})
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Button size="sm" class="rounded-full" :disabled="usingShield" @click="activateShield">
-          {{ usingShield ? 'Ativando…' : 'Usar escudo' }}
-        </Button>
-        <p v-if="shieldError" class="text-sm text-red-400">{{ shieldError }}</p>
-        <p v-if="shieldSuccess" class="text-sm text-emerald-400">{{ shieldSuccess }}</p>
-      </template>
-    </div>
 
-    <div v-if="user.playerClass" class="glass-panel space-y-4 p-5">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="font-semibold">Trocar de classe</h2>
-          <p class="text-sm text-muted-foreground">
-            <template v-if="canChangeClass">Custa {{ classChangeCost }} XP (30% do XP atual), uma vez a cada 90 dias.</template>
-            <template v-else>Disponível em {{ classChangeCooldownDaysLeft }} dia(s) — última troca há menos de 90 dias.</template>
+        <div class="glass-panel space-y-4 p-5">
+          <div>
+            <h2 class="font-semibold">Usar escudo</h2>
+            <p class="text-sm text-muted-foreground">
+              Protege antes do fechamento do dia: cancela a perda de HP do dia inteiro, ou preserva a sequência de um hábito específico
+              (sem gerar XP). No máximo 1 uso por semana, mesmo com escudos guardados.
+            </p>
+          </div>
+          <div v-if="user.shieldsRemaining === 0" class="text-sm text-muted-foreground">
+            Sem escudos disponíveis agora — renova toda segunda-feira, ou compre mais na Taverna.
+          </div>
+          <template v-else>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
+                :class="shieldTargetType === 'protecao_dia' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
+                @click="shieldTargetType = 'protecao_dia'"
+              >
+                Proteger o dia de hoje
+              </button>
+              <button
+                type="button"
+                class="glass-inset rounded-full px-4 py-1.5 text-sm transition-colors"
+                :class="shieldTargetType === 'protecao_streak' ? 'border border-primary text-foreground' : 'text-muted-foreground'"
+                @click="shieldTargetType = 'protecao_streak'"
+              >
+                Proteger sequência de um hábito
+              </button>
+            </div>
+            <Select v-if="shieldTargetType === 'protecao_streak'" v-model="shieldHabitId">
+              <SelectTrigger>
+                <SelectValue placeholder="Escolha um hábito" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="habit in activeHabitsForShield" :key="habit.id" :value="habit.id">
+                  {{ habit.name }} (sequência: {{ habit.streakCount }})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" class="rounded-full" :disabled="usingShield" @click="activateShield">
+              {{ usingShield ? 'Ativando…' : 'Usar escudo' }}
+            </Button>
+            <p v-if="shieldError" class="text-sm text-destructive">{{ shieldError }}</p>
+            <p v-if="shieldSuccess" class="text-sm text-success">{{ shieldSuccess }}</p>
+          </template>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="progressao">
+        <div v-if="stats" class="glass-panel p-5">
+          <h2 class="mb-1 font-semibold">Atributos</h2>
+          <p class="mb-2 text-sm text-muted-foreground">XP acumulado por área — mostra seu estilo de jogo na vida real</p>
+          <AttributeRadar :stats="stats" />
+        </div>
+
+        <NuxtLink to="/evolucao" class="glass-panel glass-panel-hover flex items-center gap-3 p-4 text-sm">
+          <TreeDeciduous :size="18" class="text-primary" />
+          <span>Ver árvore de habilidades e pontos disponíveis</span>
+        </NuxtLink>
+      </TabsContent>
+
+      <TabsContent value="conta">
+        <div v-if="user.playerClass" class="glass-panel space-y-4 p-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold">Trocar de classe</h2>
+              <p class="text-sm text-muted-foreground">
+                <template v-if="canChangeClass">Custa {{ classChangeCost }} XP (30% do XP atual), uma vez a cada 90 dias.</template>
+                <template v-else>Disponível em {{ classChangeCooldownDaysLeft }} dia(s) — última troca há menos de 90 dias.</template>
+              </p>
+            </div>
+            <Button v-if="canChangeClass" variant="ghost" size="sm" @click="showClassChange = !showClassChange">
+              {{ showClassChange ? 'Cancelar' : 'Trocar' }}
+            </Button>
+          </div>
+          <div v-if="showClassChange && canChangeClass" class="grid gap-3 sm:grid-cols-3">
+            <button
+              v-for="option in otherClassOptions"
+              :key="option.value"
+              type="button"
+              :disabled="changingClass"
+              class="glass-inset glass-panel-hover flex flex-col items-center gap-2 rounded-2xl p-4 text-center disabled:opacity-50"
+              @click="changeClass(option.value)"
+            >
+              <component :is="option.icon" :size="24" />
+              <p class="font-medium">{{ option.label }}</p>
+              <p class="text-xs text-muted-foreground">{{ option.description }}</p>
+            </button>
+          </div>
+          <p v-if="classChangeError" class="text-sm text-destructive">{{ classChangeError }}</p>
+        </div>
+
+        <div class="glass-panel space-y-4 p-5">
+          <div class="flex items-center gap-3">
+            <CalendarSync :size="20" class="text-violet-400" />
+            <div>
+              <h2 class="font-semibold">Google Classroom</h2>
+              <p class="text-sm text-muted-foreground">Importa suas atividades do Classroom como missões pendentes</p>
+            </div>
+          </div>
+
+          <p v-if="googleLinkMessage" class="text-sm" :class="googleLinkMessage.type === 'success' ? 'text-success' : 'text-destructive'">
+            {{ googleLinkMessage.text }}
           </p>
+
+          <div v-if="!user.googleLinked">
+            <Button as="a" href="/auth/google" class="rounded-full">Vincular conta Google</Button>
+          </div>
+          <template v-else>
+            <p class="text-sm text-muted-foreground">
+              Vinculado como <span class="text-foreground">{{ user.googleEmail }}</span>
+              <template v-if="user.lastClassroomSyncAt"> · última sincronização em {{ new Date(user.lastClassroomSyncAt).toLocaleString('pt-BR') }}</template>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <Button size="sm" class="rounded-full" :disabled="syncingGoogle" @click="handleSyncGoogle">
+                {{ syncingGoogle ? 'Sincronizando…' : 'Sincronizar Classroom' }}
+              </Button>
+              <Button variant="ghost" size="sm" :disabled="unlinkingGoogle" @click="handleUnlinkGoogle">
+                {{ unlinkingGoogle ? 'Desvinculando…' : 'Desvincular' }}
+              </Button>
+            </div>
+            <p v-if="googleSyncResult" class="text-sm text-success">
+              {{ googleSyncResult.imported }} importada(s), {{ googleSyncResult.skipped }} já existente(s)
+            </p>
+            <p v-if="googleSyncError" class="text-sm text-destructive">{{ googleSyncError }}</p>
+            <p class="text-xs text-muted-foreground">Importa atividades publicadas no Classroom, mesmo as já entregues.</p>
+          </template>
         </div>
-        <Button v-if="canChangeClass" variant="ghost" size="sm" @click="showClassChange = !showClassChange">
-          {{ showClassChange ? 'Cancelar' : 'Trocar' }}
-        </Button>
-      </div>
-      <div v-if="showClassChange && canChangeClass" class="grid gap-3 sm:grid-cols-3">
-        <button
-          v-for="option in otherClassOptions"
-          :key="option.value"
-          type="button"
-          :disabled="changingClass"
-          class="glass-inset glass-panel-hover flex flex-col items-center gap-2 rounded-2xl p-4 text-center disabled:opacity-50"
-          @click="changeClass(option.value)"
-        >
-          <component :is="option.icon" :size="24" />
-          <p class="font-medium">{{ option.label }}</p>
-          <p class="text-xs text-muted-foreground">{{ option.description }}</p>
-        </button>
-      </div>
-      <p v-if="classChangeError" class="text-sm text-red-400">{{ classChangeError }}</p>
-    </div>
-
-    <div class="glass-panel space-y-4 p-5">
-      <div class="flex items-center gap-3">
-        <CalendarSync :size="20" class="text-violet-400" />
-        <div>
-          <h2 class="font-semibold">Google Classroom</h2>
-          <p class="text-sm text-muted-foreground">Importa suas atividades do Classroom como missões pendentes</p>
-        </div>
-      </div>
-
-      <p v-if="googleLinkMessage" class="text-sm" :class="googleLinkMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'">
-        {{ googleLinkMessage.text }}
-      </p>
-
-      <div v-if="!user.googleLinked">
-        <Button as="a" href="/auth/google" class="rounded-full">Vincular conta Google</Button>
-      </div>
-      <template v-else>
-        <p class="text-sm text-muted-foreground">
-          Vinculado como <span class="text-foreground">{{ user.googleEmail }}</span>
-          <template v-if="user.lastClassroomSyncAt"> · última sincronização em {{ new Date(user.lastClassroomSyncAt).toLocaleString('pt-BR') }}</template>
-        </p>
-        <div class="flex flex-wrap gap-2">
-          <Button size="sm" class="rounded-full" :disabled="syncingGoogle" @click="handleSyncGoogle">
-            {{ syncingGoogle ? 'Sincronizando…' : 'Sincronizar Classroom' }}
-          </Button>
-          <Button variant="ghost" size="sm" :disabled="unlinkingGoogle" @click="handleUnlinkGoogle">
-            {{ unlinkingGoogle ? 'Desvinculando…' : 'Desvincular' }}
-          </Button>
-        </div>
-        <p v-if="googleSyncResult" class="text-sm text-emerald-400">
-          {{ googleSyncResult.imported }} importada(s), {{ googleSyncResult.skipped }} já existente(s)
-        </p>
-        <p v-if="googleSyncError" class="text-sm text-red-400">{{ googleSyncError }}</p>
-        <p class="text-xs text-muted-foreground">Importa atividades publicadas no Classroom, mesmo as já entregues.</p>
-      </template>
-    </div>
-
-    <div v-if="stats" class="glass-panel p-5">
-      <h2 class="mb-1 font-semibold">Atributos</h2>
-      <p class="mb-2 text-sm text-muted-foreground">XP acumulado por área — mostra seu estilo de jogo na vida real</p>
-      <AttributeRadar :stats="stats" />
-    </div>
-
-    <div class="glass-panel space-y-5 p-5">
-      <div>
-        <h2 class="font-semibold">Cosméticos</h2>
-        <p class="text-sm text-muted-foreground">Equipe itens que você já comprou na Taverna</p>
-      </div>
-      <p v-if="cosmeticError" class="text-sm text-red-400">{{ cosmeticError }}</p>
-
-      <div v-for="group in cosmeticGroups" :key="group.category" class="space-y-2">
-        <h3 class="text-sm font-medium text-muted-foreground">{{ group.label }}</h3>
-        <div v-if="group.items.some((i) => user.ownedCosmetics.includes(i.id))" class="grid gap-2 sm:grid-cols-2">
-          <button
-            v-for="cosmetic in group.items.filter((i) => user.ownedCosmetics.includes(i.id))"
-            :key="cosmetic.id"
-            type="button"
-            :disabled="equipping === cosmetic.id"
-            class="glass-inset flex items-center justify-between gap-2 rounded-2xl border p-3 text-left text-sm transition-colors disabled:opacity-50"
-            :class="isEquipped(group.category, cosmetic.id) ? 'border-primary' : 'border-white/5'"
-            @click="toggleEquip(group.category, cosmetic.id)"
-          >
-            <span>{{ cosmetic.name }}</span>
-            <Badge v-if="isEquipped(group.category, cosmetic.id)" variant="success">Equipado</Badge>
-            <span v-else class="text-xs text-muted-foreground">Equipar</span>
-          </button>
-        </div>
-        <p v-else class="text-xs text-muted-foreground">Nenhum ainda — compre na Taverna.</p>
-      </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   </div>
 </template>

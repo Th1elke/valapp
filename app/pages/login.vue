@@ -33,7 +33,7 @@ async function submit() {
     <form class="space-y-4" @submit.prevent="submit">
       <AuthField v-model="email" label="E-mail" :icon="Mail" type="email" autocomplete="email" placeholder="seu@email.com" required />
       <AuthField v-model="password" label="Senha" :icon="Lock" type="password" autocomplete="current-password" placeholder="••••••••" required />
-      <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
       <Button type="submit" class="flex w-full items-center justify-center gap-2 rounded-full" :disabled="submitting">
         {{ submitting ? 'Entrando…' : 'Entrar' }} <ArrowRight :size="16" />
       </Button>

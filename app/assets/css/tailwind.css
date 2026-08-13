@@ -20,6 +20,10 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
+    --success: 152 69% 40%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
     --border: 240 12% 22%;
     --input: 240 12% 22%;
     --ring: 262 83% 66%;
@@ -44,6 +48,10 @@
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    --success: 152 69% 34%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 42%;
+    --warning-foreground: 0 0% 10%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 262 83% 58%;
@@ -92,6 +100,11 @@
     display: none;
   }
 
+  /* +N XP flutuante no check-in de hábito (docs 4) — sobe e desaparece sozinho, sem precisar de <Transition>. */
+  .xp-float {
+    animation: xp-float 1.1s ease-out forwards;
+  }
+
   /* Animated avatar borders — applied to an unclipped wrapper, see ClassAvatar.vue */
   .border-anim-rainbow,
   .border-anim-pulse {
@@ -117,6 +130,20 @@
   }
 }
 
+@keyframes xp-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -4px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -26px);
+  }
+}
 @keyframes border-anim-spin {
   to {
     transform: rotate(360deg);

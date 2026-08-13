@@ -79,7 +79,7 @@ async function submit() {
         minlength="8"
         :maxlength="MAX_PASSWORD_LENGTH"
       />
-      <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
       <Button type="submit" class="flex w-full items-center justify-center gap-2 rounded-full" :disabled="submitting">
         {{ submitting ? 'Criando…' : 'Criar conta' }} <ArrowRight :size="16" />
       </Button>

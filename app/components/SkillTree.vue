@@ -65,7 +65,7 @@ async function unlock(skill: Skill) {
       </div>
     </div>
 
-    <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+    <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
 
     <div class="grid gap-8 sm:grid-cols-2">
       <div v-for="group in paths" :key="group.path">

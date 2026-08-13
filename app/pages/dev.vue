@@ -133,7 +133,7 @@ function resetAll() {
       </div>
     </div>
 
-    <p v-if="message" class="text-sm text-emerald-400">{{ message }}</p>
+    <p v-if="message" class="text-sm text-success">{{ message }}</p>
 
     <div class="glass-panel space-y-4 p-5">
       <h2 class="font-semibold">Recursos</h2>
@@ -215,7 +215,7 @@ function resetAll() {
     </div>
 
     <div class="glass-panel space-y-3 p-5">
-      <h2 class="font-semibold text-red-400">Zona de reset</h2>
+      <h2 class="font-semibold text-destructive">Zona de reset</h2>
       <p class="text-xs text-muted-foreground">Volta sua conta pro estado inicial: nível 1, sem classe, sem habilidades, sem itens.</p>
       <Button size="sm" variant="outline" class="rounded-full" :disabled="saving === 'Reset completo'" @click="resetAll">
         <RotateCcw :size="14" /> {{ saving === 'Reset completo' ? 'Resetando…' : 'Resetar tudo' }}

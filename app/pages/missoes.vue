@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { Check, Clock, Coins, Plus, Sparkles, Trash2, X } from 'lucide-vue-next'
+import { Check, Clock, Coins, Plus, Trash2, X } from 'lucide-vue-next'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatDateStr, todayStr } from '#shared/date'
+import { toDateStr, formatDateStr, todayStr } from '#shared/date'
 import { missionGoldReward, missionXpReward } from '#shared/gamification'
-import { categoryLabel, difficultyLabel, type HabitCategory, type HabitDifficulty } from '#shared/types'
+import { categoryLabel, difficultyLabel, type HabitCategory, type HabitDifficulty, type MissionDTO } from '#shared/types'
 
 const { data: missions, refresh } = useMissions()
 const { refresh: refreshUser } = useUserState()
+const toast = useAppToast()
 
 const difficulties = Object.keys(difficultyLabel) as HabitDifficulty[]
 const categories = Object.keys(categoryLabel) as HabitCategory[]
@@ -34,7 +36,6 @@ const noDeadline = ref(true)
 const creating = ref(false)
 const formError = ref('')
 const completingId = ref<string | null>(null)
-const lastReward = ref<{ xp: number; gold: number } | null>(null)
 const standbyPicks = ref<Record<string, HabitDifficulty | ''>>({})
 const settingDifficultyId = ref<string | null>(null)
 
@@ -74,6 +75,26 @@ function isOverdue(deadline: string) {
   return deadline < todayStr()
 }
 
+// Agrupamento por urgência: evita uma lista longa e monótona de missões ativas, e separa
+// visualmente "atrasada" de "vence essa semana"/"sem prazo" em vez de só um badge por linha.
+const sevenDaysFromNow = toDateStr(new Date(Date.now() + 7 * 86400000))
+
+const missionGroups = computed<{ key: string; label: string; missions: MissionDTO[] }[]>(() => [
+  { key: 'atrasadas', label: 'Atrasadas', missions: activeMissions.value.filter((m) => m.deadline && isOverdue(m.deadline)) },
+  {
+    key: 'essa-semana',
+    label: 'Essa semana',
+    missions: activeMissions.value.filter((m) => m.deadline && !isOverdue(m.deadline) && m.deadline <= sevenDaysFromNow),
+  },
+  {
+    key: 'futuras',
+    label: 'Futuras',
+    missions: activeMissions.value.filter((m) => m.deadline && !isOverdue(m.deadline) && m.deadline > sevenDaysFromNow),
+  },
+  { key: 'sem-prazo', label: 'Sem prazo', missions: activeMissions.value.filter((m) => !m.deadline) },
+])
+const defaultOpenGroups = ['essa-semana']
+
 async function confirmDifficulty(id: string) {
   const difficulty = standbyPicks.value[id]
   if (!difficulty) return
@@ -90,8 +111,8 @@ async function complete(id: string) {
   completingId.value = id
   try {
     const result = await completeMission(id)
-    lastReward.value = { xp: result.xp, gold: result.gold }
     await Promise.all([refresh(), refreshUser()])
+    toast.success(`Missão concluída! +${result.xp} XP · +${result.gold} ouro`)
   } finally {
     completingId.value = null
   }
@@ -154,12 +175,8 @@ async function cancel(id: string) {
           {{ creating ? 'Criando…' : 'Criar missão' }}
         </Button>
       </div>
-      <p v-if="formError" class="text-sm text-red-400">{{ formError }}</p>
+      <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
     </div>
-
-    <p v-if="lastReward" class="glass-inset flex items-center gap-2 rounded-2xl p-3 text-sm text-emerald-400">
-      <Sparkles :size="16" /> Missão concluída! +{{ lastReward.xp }} XP · +{{ lastReward.gold }} ouro
-    </p>
 
     <div v-if="standbyMissions.length" class="glass-panel divide-y divide-white/5 p-2">
       <p class="px-4 pt-2 text-sm font-medium text-muted-foreground">Pendentes — defina a dificuldade</p>
@@ -200,35 +217,45 @@ async function cancel(id: string) {
       </div>
     </div>
 
-    <div class="glass-panel divide-y divide-white/5 p-2">
-      <div v-for="mission in activeMissions" :key="mission.id" class="flex flex-wrap items-center gap-4 rounded-2xl p-4 hover:bg-white/[0.03]">
-        <div class="min-w-0 flex-1">
-          <p class="font-medium">{{ mission.title }}</p>
-          <ExpandableText v-if="mission.description" :text="mission.description" />
-          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge v-if="mission.category" :variant="mission.category">{{ categoryLabel[mission.category] }}</Badge>
-            <Badge variant="secondary">{{ difficultyLabel[mission.difficulty!] }}</Badge>
-            <Badge variant="warning">+{{ mission.xpReward }} XP</Badge>
-            <Badge variant="warning" class="flex items-center gap-1">
-              <Coins :size="10" /> +{{ mission.goldReward }}
-            </Badge>
-            <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
-              <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDateStr(mission.deadline) }}
-            </Badge>
+    <Accordion v-if="activeMissions.length" type="multiple" :default-value="defaultOpenGroups" class="space-y-2">
+      <AccordionItem v-for="group in missionGroups.filter((g) => g.missions.length)" :key="group.key" :value="group.key">
+        <AccordionTrigger>
+          <span class="flex items-center gap-2">
+            {{ group.label }}
+            <Badge variant="secondary">{{ group.missions.length }}</Badge>
+          </span>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div v-for="mission in group.missions" :key="mission.id" class="flex flex-wrap items-center gap-4 p-4 hover:bg-white/[0.03]">
+            <div class="min-w-0 flex-1">
+              <p class="font-medium">{{ mission.title }}</p>
+              <ExpandableText v-if="mission.description" :text="mission.description" />
+              <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <Badge v-if="mission.category" :variant="mission.category">{{ categoryLabel[mission.category] }}</Badge>
+                <Badge variant="secondary">{{ difficultyLabel[mission.difficulty!] }}</Badge>
+                <Badge variant="warning">+{{ mission.xpReward }} XP</Badge>
+                <Badge variant="warning" class="flex items-center gap-1">
+                  <Coins :size="10" /> +{{ mission.goldReward }}
+                </Badge>
+                <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
+                  <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDateStr(mission.deadline) }}
+                </Badge>
+              </div>
+            </div>
+
+            <Button variant="success" size="sm" class="rounded-full" :disabled="completingId === mission.id" @click="complete(mission.id)">
+              <Check :size="14" /> Concluir
+            </Button>
+            <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" title="Cancelar missão" @click="cancel(mission.id)">
+              <Trash2 :size="16" />
+            </Button>
           </div>
-        </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
 
-        <Button size="sm" class="rounded-full" :disabled="completingId === mission.id" @click="complete(mission.id)">
-          <Check :size="14" /> Concluir
-        </Button>
-        <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" title="Cancelar missão" @click="cancel(mission.id)">
-          <Trash2 :size="16" />
-        </Button>
-      </div>
-
-      <p v-if="!activeMissions.length && !standbyMissions.length" class="p-6 text-center text-sm text-muted-foreground">
-        Nenhuma missão ativa. Crie uma tarefa pontual acima.
-      </p>
-    </div>
+    <p v-if="!activeMissions.length && !standbyMissions.length" class="glass-panel p-6 text-center text-sm text-muted-foreground">
+      Nenhuma missão ativa. Crie uma tarefa pontual acima.
+    </p>
   </div>
 </template>
