@@ -15,7 +15,7 @@ export function createMission(input: {
 }
 
 export function completeMission(id: string) {
-  return $fetch<{ xp: number; gold: number; level: number; leveledUp: boolean }>(`/api/missions/${id}/complete`, {
+  return $fetch<{ xpAwarded: number; goldAwarded: number; xp: number; gold: number; level: number; leveledUp: boolean }>(`/api/missions/${id}/complete`, {
     method: 'POST',
   })
 }

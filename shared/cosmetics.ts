@@ -123,7 +123,7 @@ export const THEMES: CosmeticItem[] = [
     name: 'Tema Vermelho Sangue',
     description: 'Troca a cor de destaque do app para vermelho',
     cost: 250,
-    accent: { kind: 'gradient', className: 'bg-gradient-to-br from-red-500 to-red-900' },
+    accent: { kind: 'gradient', className: 'bg-gradient-to-br from-rose-600 to-red-900' },
   },
   {
     id: 'verde_esmeralda',
@@ -131,7 +131,7 @@ export const THEMES: CosmeticItem[] = [
     name: 'Tema Verde Esmeralda',
     description: 'Troca a cor de destaque do app para verde',
     cost: 250,
-    accent: { kind: 'gradient', className: 'bg-gradient-to-br from-emerald-400 to-green-700' },
+    accent: { kind: 'gradient', className: 'bg-gradient-to-br from-emerald-400 to-teal-700' },
   },
   {
     id: 'azul_safira',
@@ -180,8 +180,11 @@ export const COSMETIC_ITEMS: CosmeticItem[] = [...TITLES, ...BORDERS, ...THEMES]
 /** HSL "H S% L%" pairs matching the format used in app/assets/css/tailwind.css */
 export const THEME_COLORS: Record<string, { primary: string; ring: string; background: string; card: string }> = {
   ouro: { primary: '43 96% 56%', ring: '43 96% 56%', background: '43 25% 5%', card: '43 18% 9%' },
-  vermelho_sangue: { primary: '0 72% 51%', ring: '0 72% 51%', background: '0 25% 5%', card: '0 18% 9%' },
-  verde_esmeralda: { primary: '152 69% 40%', ring: '152 69% 40%', background: '152 25% 5%', card: '152 18% 9%' },
+  // H deliberately shifted off 0/152 (crimson-toward-magenta, emerald-toward-teal) — those hues are the
+  // exact HSL triplets of --destructive/--success in tailwind.css, so a literal match made this theme's
+  // "primary" indistinguishable from error/success badges (see analise-uxui-val.md, seção 3.6).
+  vermelho_sangue: { primary: '350 78% 42%', ring: '350 78% 42%', background: '350 25% 5%', card: '350 18% 9%' },
+  verde_esmeralda: { primary: '165 65% 35%', ring: '165 65% 35%', background: '165 25% 5%', card: '165 18% 9%' },
   azul_safira: { primary: '217 91% 60%', ring: '217 91% 60%', background: '217 25% 5%', card: '217 18% 9%' },
   rosa_choque: { primary: '330 81% 60%', ring: '330 81% 60%', background: '330 25% 5%', card: '330 18% 9%' },
   ciano: { primary: '189 94% 43%', ring: '189 94% 43%', background: '189 25% 5%', card: '189 18% 9%' },

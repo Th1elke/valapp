@@ -112,7 +112,7 @@ async function complete(id: string) {
   try {
     const result = await completeMission(id)
     await Promise.all([refresh(), refreshUser()])
-    toast.success(`Missão concluída! +${result.xp} XP · +${result.gold} ouro`)
+    toast.success(`Missão concluída! +${result.xpAwarded} XP · +${result.goldAwarded} ouro`)
   } finally {
     completingId.value = null
   }
@@ -226,7 +226,12 @@ async function cancel(id: string) {
           </span>
         </AccordionTrigger>
         <AccordionContent>
-          <div v-for="mission in group.missions" :key="mission.id" class="flex flex-wrap items-center gap-4 p-4 hover:bg-white/[0.03]">
+          <div
+            v-for="mission in group.missions"
+            :key="mission.id"
+            class="flex flex-wrap items-center gap-4 p-4 hover:bg-white/[0.03]"
+            :class="mission.deadline && isOverdue(mission.deadline) ? 'border-l-2 border-destructive pl-3' : ''"
+          >
             <div class="min-w-0 flex-1">
               <p class="font-medium">{{ mission.title }}</p>
               <ExpandableText v-if="mission.description" :text="mission.description" />
@@ -237,8 +242,8 @@ async function cancel(id: string) {
                 <Badge variant="warning" class="flex items-center gap-1">
                   <Coins :size="10" /> +{{ mission.goldReward }}
                 </Badge>
-                <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
-                  <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDateStr(mission.deadline) }}
+                <Badge v-if="mission.deadline && !isOverdue(mission.deadline)" variant="secondary" class="flex items-center gap-1">
+                  <Clock :size="10" /> {{ formatDateStr(mission.deadline) }}
                 </Badge>
               </div>
             </div>

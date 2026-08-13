@@ -57,6 +57,13 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return { xp: newXp, gold: newGold, level: newLevel, leveledUp: newLevel > user.level }
+    return {
+      xpAwarded: xpReward,
+      goldAwarded: finalGoldReward,
+      xp: newXp,
+      gold: newGold,
+      level: newLevel,
+      leveledUp: newLevel > user.level,
+    }
   })
 })

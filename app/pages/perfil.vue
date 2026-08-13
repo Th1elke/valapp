@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TITLES } from '#shared/cosmetics'
+import { BORDERS, THEMES, TITLES, type CosmeticCategory } from '#shared/cosmetics'
 import { getMaxShields } from '#shared/economy'
 import { CLASS_CHANGE_COOLDOWN_DAYS, CLASS_CHANGE_XP_COST_PERCENT, getClassInfo } from '#shared/gamification'
 import type { PlayerClass, ShieldTargetType } from '#shared/types'
@@ -149,6 +149,7 @@ async function changeClass(playerClass: PlayerClass) {
 
 // Integração com Google Classroom: vincula a conta e importa atividades como missões standby.
 const route = useRoute()
+const initialTab = route.query.tab === 'cosmeticos' ? 'cosmeticos' : 'visao-geral'
 const googleLinkMessage = computed(() => {
   if (route.query.google === 'linked') return { type: 'success', text: 'Conta Google vinculada com sucesso!' }
   if (route.query.google === 'error') return { type: 'error', text: 'Não foi possível vincular a conta Google.' }
@@ -185,6 +186,37 @@ async function handleUnlinkGoogle() {
   }
 }
 
+// Cosméticos: equipar/desequipar itens já comprados na Taverna (só o que o jogador possui, ver doc UX 2.B).
+const cosmeticGroups: { category: CosmeticCategory; label: string; items: typeof TITLES }[] = [
+  { category: 'titulo', label: 'Títulos', items: TITLES },
+  { category: 'borda', label: 'Bordas de Avatar', items: BORDERS },
+  { category: 'tema', label: 'Temas de Cor', items: THEMES },
+]
+const equipping = ref<string | null>(null)
+const equipError = ref('')
+
+function isEquipped(category: CosmeticCategory, id: string) {
+  if (!user.value) return false
+  if (category === 'titulo') return user.value.equippedTitle === id
+  if (category === 'borda') return user.value.equippedAvatarBorder === id
+  return user.value.equippedTheme === id
+}
+
+async function toggleEquip(category: CosmeticCategory, id: string) {
+  const wasEquipped = isEquipped(category, id)
+  equipping.value = id
+  equipError.value = ''
+  try {
+    await equipCosmetic(category, wasEquipped ? null : id)
+    await refreshUser()
+    toast.success(wasEquipped ? 'Item desequipado.' : 'Item equipado!')
+  } catch (err) {
+    equipError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Não foi possível equipar.'
+    toast.error(equipError.value)
+  } finally {
+    equipping.value = null
+  }
+}
 </script>
 
 <template>
@@ -279,10 +311,11 @@ async function handleUnlinkGoogle() {
       </div>
     </div>
 
-    <Tabs default-value="visao-geral">
+    <Tabs :default-value="initialTab">
       <TabsList>
         <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
         <TabsTrigger value="progressao">Progressão</TabsTrigger>
+        <TabsTrigger value="cosmeticos">Cosméticos</TabsTrigger>
         <TabsTrigger value="conta">Conta & Integrações</TabsTrigger>
       </TabsList>
 
@@ -386,6 +419,34 @@ async function handleUnlinkGoogle() {
           <TreeDeciduous :size="18" class="text-primary" />
           <span>Ver árvore de habilidades e pontos disponíveis</span>
         </NuxtLink>
+      </TabsContent>
+
+      <TabsContent value="cosmeticos">
+        <p v-if="equipError" class="text-sm text-destructive">{{ equipError }}</p>
+
+        <div class="glass-panel space-y-5 p-5">
+          <p class="text-sm text-muted-foreground">Equipe os itens que você já comprou na Taverna — o que estiver ativo aqui aparece no seu perfil.</p>
+
+          <div v-for="group in cosmeticGroups" :key="group.category" class="space-y-2">
+            <h3 class="text-sm font-medium text-muted-foreground">{{ group.label }}</h3>
+            <div v-if="group.items.some((i) => user.ownedCosmetics.includes(i.id))" class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="cosmetic in group.items.filter((i) => user.ownedCosmetics.includes(i.id))"
+                :key="cosmetic.id"
+                type="button"
+                :disabled="equipping === cosmetic.id"
+                class="glass-inset flex items-center justify-between gap-2 rounded-2xl border p-3 text-left text-sm transition-colors disabled:opacity-50"
+                :class="isEquipped(group.category, cosmetic.id) ? 'border-primary' : 'border-white/5'"
+                @click="toggleEquip(group.category, cosmetic.id)"
+              >
+                <span>{{ cosmetic.name }}</span>
+                <Badge v-if="isEquipped(group.category, cosmetic.id)" variant="success">Equipado</Badge>
+                <span v-else class="text-xs text-muted-foreground">Equipar</span>
+              </button>
+            </div>
+            <p v-else class="text-xs text-muted-foreground">Nenhum ainda — compre na Taverna.</p>
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="conta">
