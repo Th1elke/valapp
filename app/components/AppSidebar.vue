@@ -10,8 +10,8 @@ const nav = [
   { to: '/agenda', label: 'Agenda', icon: Calendar },
   { to: '/grimorio', label: 'Grimório', icon: BookOpen },
   { to: '/loja', label: 'Taverna', icon: Store },
-  { to: '/perfil', label: 'Perfil', icon: UserRound },
   { to: '/evolucao', label: 'Evolução', icon: Trophy },
+  { to: '/perfil', label: 'Perfil', icon: UserRound },
   ...(import.meta.dev ? [{ to: '/dev', label: 'Painel de Teste', icon: FlaskConical }] : []),
 ]
 </script>
