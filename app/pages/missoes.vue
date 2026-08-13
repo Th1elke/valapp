@@ -178,45 +178,6 @@ async function cancel(id: string) {
       <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
     </div>
 
-    <div v-if="standbyMissions.length" class="glass-panel divide-y divide-white/5 p-2">
-      <p class="px-4 pt-2 text-sm font-medium text-muted-foreground">Pendentes — defina a dificuldade</p>
-      <div v-for="mission in standbyMissions" :key="mission.id" class="flex flex-wrap items-center gap-4 rounded-2xl p-4 hover:bg-white/[0.03]">
-        <div class="min-w-0 flex-1">
-          <p class="font-medium">{{ mission.title }}</p>
-          <ExpandableText v-if="mission.description" :text="mission.description" />
-          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge v-if="mission.category" :variant="mission.category">{{ categoryLabel[mission.category] }}</Badge>
-            <Badge variant="secondary">Pendente</Badge>
-            <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
-              <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDateStr(mission.deadline) }}
-            </Badge>
-          </div>
-        </div>
-
-        <Select v-model="standbyPicks[mission.id]">
-          <SelectTrigger class="w-40">
-            <SelectValue placeholder="Dificuldade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="d in difficulties" :key="d" :value="d">
-              {{ difficultyLabel[d] }} · {{ missionXpReward(d) }} XP · {{ missionGoldReward(d) }} ouro
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          class="rounded-full"
-          :disabled="!standbyPicks[mission.id] || settingDifficultyId === mission.id"
-          @click="confirmDifficulty(mission.id)"
-        >
-          <Check :size="14" /> Confirmar
-        </Button>
-        <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" title="Cancelar missão" @click="cancel(mission.id)">
-          <Trash2 :size="16" />
-        </Button>
-      </div>
-    </div>
-
     <Accordion v-if="activeMissions.length" type="multiple" :default-value="defaultOpenGroups" class="space-y-2">
       <AccordionItem v-for="group in missionGroups.filter((g) => g.missions.length)" :key="group.key" :value="group.key">
         <AccordionTrigger>
@@ -258,6 +219,45 @@ async function cancel(id: string) {
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+
+    <div v-if="standbyMissions.length" class="glass-panel divide-y divide-white/5 p-2">
+      <p class="px-4 pt-2 text-sm font-medium text-muted-foreground">Pendentes — defina a dificuldade</p>
+      <div v-for="mission in standbyMissions" :key="mission.id" class="flex flex-wrap items-center gap-4 rounded-2xl p-4 hover:bg-white/[0.03]">
+        <div class="min-w-0 flex-1">
+          <p class="font-medium">{{ mission.title }}</p>
+          <ExpandableText v-if="mission.description" :text="mission.description" />
+          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Badge v-if="mission.category" :variant="mission.category">{{ categoryLabel[mission.category] }}</Badge>
+            <Badge variant="secondary">Pendente</Badge>
+            <Badge v-if="mission.deadline" :variant="isOverdue(mission.deadline) ? 'danger' : 'secondary'" class="flex items-center gap-1">
+              <Clock :size="10" /> {{ isOverdue(mission.deadline) ? 'Atrasada' : formatDateStr(mission.deadline) }}
+            </Badge>
+          </div>
+        </div>
+
+        <Select v-model="standbyPicks[mission.id]">
+          <SelectTrigger class="w-40">
+            <SelectValue placeholder="Dificuldade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="d in difficulties" :key="d" :value="d">
+              {{ difficultyLabel[d] }} · {{ missionXpReward(d) }} XP · {{ missionGoldReward(d) }} ouro
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          class="rounded-full"
+          :disabled="!standbyPicks[mission.id] || settingDifficultyId === mission.id"
+          @click="confirmDifficulty(mission.id)"
+        >
+          <Check :size="14" /> Confirmar
+        </Button>
+        <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" title="Cancelar missão" @click="cancel(mission.id)">
+          <Trash2 :size="16" />
+        </Button>
+      </div>
+    </div>
 
     <p v-if="!activeMissions.length && !standbyMissions.length" class="glass-panel p-6 text-center text-sm text-muted-foreground">
       Nenhuma missão ativa. Crie uma tarefa pontual acima.
