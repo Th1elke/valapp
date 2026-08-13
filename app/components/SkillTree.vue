@@ -86,7 +86,7 @@ async function unlock(skill: Skill) {
         </div>
         <div class="flex flex-col items-center">
           <template v-for="(skill, i) in group.skills" :key="skill.id">
-            <div v-if="i > 0" class="h-6 w-1 shrink-0 rounded-full" :class="state(group.skills[i - 1]) !== 'locked' ? 'bg-primary/60' : 'bg-white/10'" />
+            <div v-if="i > 0" class="h-6 w-1 shrink-0 rounded-full" :class="state(group.skills[i - 1]!) !== 'locked' ? 'bg-primary/60' : 'bg-white/10'" />
             <div class="flex w-full max-w-[220px] flex-col items-center gap-2 pb-6 text-center last:pb-0">
               <div
                 class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 transition-all"
